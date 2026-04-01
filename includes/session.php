@@ -1,10 +1,16 @@
 <?php
-require_once __DIR__ . '/config/config.php';
-require_once __DIR__ . '/includes/session.php';
-
-if (isLoggedIn()) {
-    header('Location: ' . BASE_URL . '/modules/dashboard/index.php');
-} else {
-    header('Location: ' . BASE_URL . '/modules/auth/login.php');
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
 }
-exit;
+
+function isLoggedIn() {
+    return isset($_SESSION['usuario_id']);
+}
+
+function currentUserName() {
+    return $_SESSION['nombre_usuario'] ?? '';
+}
+
+function currentRole() {
+    return $_SESSION['rol_nombre'] ?? '';
+}
