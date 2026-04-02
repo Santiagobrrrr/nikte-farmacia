@@ -29,7 +29,7 @@ try {
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h1 class="mb-0">Productos</h1>
-                        <a href="#" class="btn btn-success">Nuevo producto</a>
+                        <a href="<?= BASE_URL; ?>/modules/productos/form.php" class="btn btn-success">Nuevo producto</a>
                     </div>
 
                     <p class="text-muted">
