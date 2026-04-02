@@ -3,14 +3,17 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-function isLoggedIn() {
+function isLoggedIn(): bool
+{
     return isset($_SESSION['usuario_id']);
 }
 
-function currentUserName() {
+function currentUserName(): string
+{
     return $_SESSION['nombre_usuario'] ?? '';
 }
 
-function currentRole() {
+function currentRole(): string
+{
     return $_SESSION['rol_nombre'] ?? '';
 }
