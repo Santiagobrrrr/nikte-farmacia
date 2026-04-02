@@ -11,14 +11,20 @@ $currentPage = $_SERVER['PHP_SELF'] ?? '';
             <h5 class="card-title">Menú</h5>
 
             <div class="list-group">
-                <a 
+                <a
                     href="<?= BASE_URL; ?>/modules/dashboard/index.php"
                     class="list-group-item list-group-item-action <?= str_contains($currentPage, '/modules/dashboard/index.php') ? 'active' : ''; ?>">
                     Dashboard
                 </a>
 
+                <a
+                    href="<?= BASE_URL; ?>/modules/productos/index.php"
+                    class="list-group-item list-group-item-action <?= str_contains($currentPage, '/modules/productos/index.php') ? 'active' : ''; ?>">
+                    Productos
+                </a>
+
                 <?php if (currentRole() === 'administradora'): ?>
-                    <a 
+                    <a
                         href="<?= BASE_URL; ?>/modules/usuarios/index.php"
                         class="list-group-item list-group-item-action <?= str_contains($currentPage, '/modules/usuarios/index.php') ? 'active' : ''; ?>">
                         Usuarios

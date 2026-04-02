@@ -31,12 +31,13 @@ try {
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h1 class="mb-0">Productos</h1>
-                        <a href="<?= BASE_URL; ?>/modules/productos/form.php" class="btn btn-success">Nuevo producto</a>
-                    </div>
 
-                    <p class="text-muted">
-                        Listado real de productos cargado desde la base de datos.
-                    </p>
+                        <?php if (currentRole() === 'administradora'): ?>
+                            <a href="<?= BASE_URL; ?>/modules/productos/form.php" class="btn btn-success">
+                                Nuevo producto
+                            </a>
+                        <?php endif; ?>
+                    </div>
 
                     <?php if (!empty($success)): ?>
                         <div class="alert alert-success">
@@ -63,7 +64,9 @@ try {
                                         <th>Precio de venta</th>
                                         <th>Stock mínimo</th>
                                         <th>Requiere receta</th>
-                                        <th width="180">Acciones</th>
+                                        <?php if (currentRole() === 'administradora'): ?>
+                                            <th width="180">Acciones</th>
+                                        <?php endif; ?>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -75,10 +78,14 @@ try {
                                             <td>Q<?= number_format((float) $producto['precio_venta'], 2); ?></td>
                                             <td><?= (int) $producto['stock_minimo']; ?></td>
                                             <td><?= (int) $producto['requiere_receta'] === 1 ? 'Sí' : 'No'; ?></td>
-                                            <td>
-                                                <a href="#" class="btn btn-sm btn-primary">Editar</a>
-                                                <a href="#" class="btn btn-sm btn-danger">Eliminar</a>
-                                            </td>
+
+                                            <?php if (currentRole() === 'administradora'): ?>
+                                                <td>
+                                                    <a href="<?= BASE_URL; ?>/modules/productos/form.php?id=<?= (int) $producto['id_producto']; ?>" class="btn btn-sm btn-primary">
+                                                        Editar
+                                                    </a>
+                                                </td>
+                                            <?php endif; ?>
                                         </tr>
                                     <?php endforeach; ?>
                                 </tbody>
