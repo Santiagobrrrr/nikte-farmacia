@@ -19,7 +19,7 @@ $currentPage = $_SERVER['PHP_SELF'] ?? '';
 
                 <a
                     href="<?= BASE_URL; ?>/modules/productos/index.php"
-                    class="list-group-item list-group-item-action <?= str_contains($currentPage, '/modules/productos/index.php') && !str_contains($currentPage, '/modules/productos/por_vencer.php') ? 'active' : ''; ?>">
+                    class="list-group-item list-group-item-action <?= str_contains($currentPage, '/modules/productos/index.php') && !str_contains($currentPage, '/modules/productos/por_vencer.php') && !str_contains($currentPage, '/modules/productos/stock_bajo.php') ? 'active' : ''; ?>">
                     Productos
                 </a>
 
@@ -27,6 +27,12 @@ $currentPage = $_SERVER['PHP_SELF'] ?? '';
                     href="<?= BASE_URL; ?>/modules/productos/por_vencer.php"
                     class="list-group-item list-group-item-action <?= str_contains($currentPage, '/modules/productos/por_vencer.php') ? 'active' : ''; ?>">
                     Productos por vencer
+                </a>
+
+                <a
+                    href="<?= BASE_URL; ?>/modules/productos/stock_bajo.php"
+                    class="list-group-item list-group-item-action <?= str_contains($currentPage, '/modules/productos/stock_bajo.php') ? 'active' : ''; ?>">
+                    Stock bajo
                 </a>
 
                 <?php if (currentRole() === 'administradora'): ?>
