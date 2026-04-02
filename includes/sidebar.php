@@ -19,8 +19,14 @@ $currentPage = $_SERVER['PHP_SELF'] ?? '';
 
                 <a
                     href="<?= BASE_URL; ?>/modules/productos/index.php"
-                    class="list-group-item list-group-item-action <?= str_contains($currentPage, '/modules/productos/index.php') ? 'active' : ''; ?>">
+                    class="list-group-item list-group-item-action <?= str_contains($currentPage, '/modules/productos/index.php') && !str_contains($currentPage, '/modules/productos/por_vencer.php') ? 'active' : ''; ?>">
                     Productos
+                </a>
+
+                <a
+                    href="<?= BASE_URL; ?>/modules/productos/por_vencer.php"
+                    class="list-group-item list-group-item-action <?= str_contains($currentPage, '/modules/productos/por_vencer.php') ? 'active' : ''; ?>">
+                    Productos por vencer
                 </a>
 
                 <?php if (currentRole() === 'administradora'): ?>
