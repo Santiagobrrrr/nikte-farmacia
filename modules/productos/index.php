@@ -11,9 +11,24 @@ unset($_SESSION['producto_success']);
 try {
     $pdo = getPDO();
 
-    $sql = "SELECT id_producto, nombre, presentacion, precio_venta, stock_minimo, requiere_receta
-            FROM producto
-            ORDER BY nombre ASC";
+    $sql = "SELECT
+                p.id_producto,
+                p.nombre,
+                p.presentacion,
+                p.precio_venta,
+                p.stock_minimo,
+                p.requiere_receta,
+                COALESCE(SUM(l.cantidad_actual), 0) AS stock_actual
+            FROM producto p
+            LEFT JOIN lote l ON l.id_producto = p.id_producto
+            GROUP BY
+                p.id_producto,
+                p.nombre,
+                p.presentacion,
+                p.precio_venta,
+                p.stock_minimo,
+                p.requiere_receta
+            ORDER BY p.nombre ASC";
 
     $stmt = $pdo->query($sql);
     $productos = $stmt->fetchAll();
@@ -39,6 +54,10 @@ try {
                         <?php endif; ?>
                     </div>
 
+                    <p class="text-muted">
+                        Listado de productos con stock real calculado desde los lotes registrados.
+                    </p>
+
                     <?php if (!empty($success)): ?>
                         <div class="alert alert-success">
                             <?= htmlspecialchars($success); ?>
@@ -61,9 +80,11 @@ try {
                                         <th>ID</th>
                                         <th>Nombre</th>
                                         <th>Presentación</th>
-                                        <th>Precio de venta</th>
+                                        <th>Precio</th>
                                         <th>Stock mínimo</th>
-                                        <th>Requiere receta</th>
+                                        <th>Stock actual</th>
+                                        <th>Estado</th>
+                                        <th>Receta</th>
                                         <?php if (currentRole() === 'administradora'): ?>
                                             <th width="180">Acciones</th>
                                         <?php endif; ?>
@@ -71,12 +92,33 @@ try {
                                 </thead>
                                 <tbody>
                                     <?php foreach ($productos as $producto): ?>
+                                        <?php
+                                        $stockActual = (int) $producto['stock_actual'];
+                                        $stockMinimo = (int) $producto['stock_minimo'];
+
+                                        if ($stockActual <= 0) {
+                                            $estado = 'Sin stock';
+                                            $clase = 'danger';
+                                        } elseif ($stockActual <= $stockMinimo) {
+                                            $estado = 'Stock bajo';
+                                            $clase = 'warning';
+                                        } else {
+                                            $estado = 'En stock';
+                                            $clase = 'success';
+                                        }
+                                        ?>
                                         <tr>
                                             <td><?= (int) $producto['id_producto']; ?></td>
                                             <td><?= htmlspecialchars($producto['nombre']); ?></td>
                                             <td><?= htmlspecialchars($producto['presentacion'] ?? ''); ?></td>
                                             <td>Q<?= number_format((float) $producto['precio_venta'], 2); ?></td>
-                                            <td><?= (int) $producto['stock_minimo']; ?></td>
+                                            <td><?= $stockMinimo; ?></td>
+                                            <td><?= $stockActual; ?></td>
+                                            <td>
+                                                <span class="badge text-bg-<?= $clase; ?>">
+                                                    <?= $estado; ?>
+                                                </span>
+                                            </td>
                                             <td><?= (int) $producto['requiere_receta'] === 1 ? 'Sí' : 'No'; ?></td>
 
                                             <?php if (currentRole() === 'administradora'): ?>
