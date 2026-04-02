@@ -11,7 +11,7 @@ require_once __DIR__ . '/../../includes/header.php';
     <div class="row">
         <?php require_once __DIR__ . '/../../includes/sidebar.php'; ?>
 
-        <div class="col-md-9 col-lg-10">
+        <div class="col-12 col-md-9 col-lg-10">
             <div class="card shadow-sm">
                 <div class="card-body">
                     <h1 class="mb-3">Dashboard</h1>
@@ -24,6 +24,16 @@ require_once __DIR__ . '/../../includes/header.php';
 
                     <p><strong>Bienvenido:</strong> <?= htmlspecialchars(currentUserName()); ?></p>
                     <p><strong>Rol:</strong> <?= htmlspecialchars(currentRole()); ?></p>
+
+                    <?php if (currentRole() === 'administradora'): ?>
+                        <div class="alert alert-success mt-3">
+                            Bienvenida administradora
+                        </div>
+                    <?php else: ?>
+                        <div class="alert alert-info mt-3">
+                            Bienvenida vendedora
+                        </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>

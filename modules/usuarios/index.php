@@ -1,5 +1,6 @@
 <?php
-require_once __DIR__ . '/../../includes/auth_check.php';
+$allowed_roles = ['administradora'];
+require_once __DIR__ . '/../../includes/role_check.php';
 require_once __DIR__ . '/../../includes/header.php';
 ?>
 
@@ -11,8 +12,8 @@ require_once __DIR__ . '/../../includes/header.php';
             <div class="card shadow-sm">
                 <div class="card-body">
                     <h1 class="mb-3">Usuarios</h1>
-                    <p>Módulo visual de usuarios.</p>
-                    <p>Aún no hay nada.</p>
+                    <p>Bienvenida admin</p>
+                    <p>Aún nada</p>
                 </div>
             </div>
         </div>
