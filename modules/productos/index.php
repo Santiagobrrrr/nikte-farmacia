@@ -5,6 +5,8 @@ require_once __DIR__ . '/../../includes/header.php';
 
 $productos = [];
 $error = '';
+$success = $_SESSION['producto_success'] ?? '';
+unset($_SESSION['producto_success']);
 
 try {
     $pdo = getPDO();
@@ -36,6 +38,12 @@ try {
                         Listado real de productos cargado desde la base de datos.
                     </p>
 
+                    <?php if (!empty($success)): ?>
+                        <div class="alert alert-success">
+                            <?= htmlspecialchars($success); ?>
+                        </div>
+                    <?php endif; ?>
+
                     <?php if (!empty($error)): ?>
                         <div class="alert alert-danger">
                             <?= htmlspecialchars($error); ?>
@@ -66,9 +74,7 @@ try {
                                             <td><?= htmlspecialchars($producto['presentacion'] ?? ''); ?></td>
                                             <td>Q<?= number_format((float) $producto['precio_venta'], 2); ?></td>
                                             <td><?= (int) $producto['stock_minimo']; ?></td>
-                                            <td>
-                                                <?= (int) $producto['requiere_receta'] === 1 ? 'Sí' : 'No'; ?>
-                                            </td>
+                                            <td><?= (int) $producto['requiere_receta'] === 1 ? 'Sí' : 'No'; ?></td>
                                             <td>
                                                 <a href="#" class="btn btn-sm btn-primary">Editar</a>
                                                 <a href="#" class="btn btn-sm btn-danger">Eliminar</a>

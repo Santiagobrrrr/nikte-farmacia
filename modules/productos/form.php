@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/../../includes/auth_check.php';
 require_once __DIR__ . '/../../includes/header.php';
+
+$error = $_SESSION['producto_error'] ?? '';
+unset($_SESSION['producto_error']);
 ?>
 
 <div class="container-fluid py-4">
@@ -17,10 +20,20 @@ require_once __DIR__ . '/../../includes/header.php';
                         </a>
                     </div>
 
-                    <form action="#" method="POST">
+                    <p class="text-muted">
+                        Formulario para registrar un producto.
+                    </p>
+
+                    <?php if (!empty($error)): ?>
+                        <div class="alert alert-danger">
+                            <?= htmlspecialchars($error); ?>
+                        </div>
+                    <?php endif; ?>
+
+                    <form action="<?= BASE_URL; ?>/modules/productos/action.php" method="POST">
                         <div class="row">
                             <div class="col-12 col-md-6 mb-3">
-                                <label for="nombre" class="form-label">Nombre</label>
+                                <label for="nombre" class="form-label">Nombre *</label>
                                 <input type="text" id="nombre" name="nombre" class="form-control" required>
                             </div>
 
@@ -35,12 +48,12 @@ require_once __DIR__ . '/../../includes/header.php';
                             </div>
 
                             <div class="col-12 col-md-4 mb-3">
-                                <label for="precio_venta" class="form-label">Precio de venta</label>
+                                <label for="precio_venta" class="form-label">Precio de venta *</label>
                                 <input type="number" step="0.01" min="0" id="precio_venta" name="precio_venta" class="form-control" required>
                             </div>
 
                             <div class="col-12 col-md-4 mb-3">
-                                <label for="stock_minimo" class="form-label">Stock mínimo</label>
+                                <label for="stock_minimo" class="form-label">Stock mínimo *</label>
                                 <input type="number" min="0" id="stock_minimo" name="stock_minimo" class="form-control" required>
                             </div>
 
