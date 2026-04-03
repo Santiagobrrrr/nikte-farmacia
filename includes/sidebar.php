@@ -37,9 +37,9 @@ $isUsuarios = str_contains($currentPage, '/modules/usuarios/');
                     Proveedores
                 </a>
 
-                <a href="#"
-                   class="list-group-item list-group-item-action disabled">
-                    Compras
+                <a href="<?= BASE_URL; ?>/modules/compras/index.php"
+                    class="list-group-item list-group-item-action <?= $isCompras ? 'active' : ''; ?>">
+                     Compras
                 </a>
 
                 <a href="#"
