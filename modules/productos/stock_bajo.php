@@ -46,6 +46,20 @@ try {
                         </a>
                     </div>
 
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <a href="<?= BASE_URL; ?>/modules/productos/index.php" class="btn btn-outline-primary btn-sm">
+                            Ver productos
+                        </a>
+
+                        <a href="<?= BASE_URL; ?>/modules/productos/stock_bajo.php" class="btn btn-outline-warning btn-sm">
+                            Stock bajo
+                        </a>
+
+                        <a href="<?= BASE_URL; ?>/modules/productos/por_vencer.php" class="btn btn-outline-danger btn-sm">
+                            Productos por vencer
+                        </a>
+                    </div>
+
                     <p class="text-muted">
                         Alerta de productos cuyo stock actual es menor o igual al stock mínimo definido.
                     </p>
