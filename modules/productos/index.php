@@ -126,6 +126,9 @@ try {
                                                     <a href="<?= BASE_URL; ?>/modules/productos/form.php?id=<?= (int) $producto['id_producto']; ?>" class="btn btn-sm btn-primary">
                                                         Editar
                                                     </a>
+                                                    <a href="<?= BASE_URL; ?>/modules/lotes/form.php?id_producto=<?= (int) $producto['id_producto']; ?>" class="btn btn-sm btn-success mt-1">
+                                                        Agregar lote
+                                                    </a>
                                                 </td>
                                             <?php endif; ?>
                                         </tr>

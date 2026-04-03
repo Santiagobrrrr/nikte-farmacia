@@ -37,6 +37,12 @@ $currentPage = $_SERVER['PHP_SELF'] ?? '';
 
                 <?php if (currentRole() === 'administradora'): ?>
                     <a
+                        href="<?= BASE_URL; ?>/modules/lotes/form.php"
+                        class="list-group-item list-group-item-action <?= str_contains($currentPage, '/modules/lotes/form.php') ? 'active' : ''; ?>">
+                        Ingresar lote
+                    </a>
+
+                    <a
                         href="<?= BASE_URL; ?>/modules/usuarios/index.php"
                         class="list-group-item list-group-item-action <?= str_contains($currentPage, '/modules/usuarios/index.php') ? 'active' : ''; ?>">
                         Usuarios
