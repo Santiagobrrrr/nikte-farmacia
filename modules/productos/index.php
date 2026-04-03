@@ -86,7 +86,7 @@ try {
                                         <th>Estado</th>
                                         <th>Receta</th>
                                         <?php if (currentRole() === 'administradora'): ?>
-                                            <th width="180">Acciones</th>
+                                            <th width="220">Acciones</th>
                                         <?php endif; ?>
                                     </tr>
                                 </thead>
@@ -120,14 +120,24 @@ try {
                                                 </span>
                                             </td>
                                             <td><?= (int) $producto['requiere_receta'] === 1 ? 'Sí' : 'No'; ?></td>
-
                                             <?php if (currentRole() === 'administradora'): ?>
                                                 <td>
-                                                    <a href="<?= BASE_URL; ?>/modules/productos/form.php?id=<?= (int) $producto['id_producto']; ?>" class="btn btn-sm btn-primary">
+                                                    <a href="<?= BASE_URL; ?>/modules/lotes/index.php?id_producto=<?= (int) $producto['id_producto']; ?>" class="btn btn-sm btn-outline-dark mb-1">
+                                                        Ver lotes
+                                                    </a>
+
+                                                    <a href="<?= BASE_URL; ?>/modules/productos/form.php?id=<?= (int) $producto['id_producto']; ?>" class="btn btn-sm btn-primary mb-1">
                                                         Editar
                                                     </a>
-                                                    <a href="<?= BASE_URL; ?>/modules/lotes/form.php?id_producto=<?= (int) $producto['id_producto']; ?>" class="btn btn-sm btn-success mt-1">
+
+                                                    <a href="<?= BASE_URL; ?>/modules/lotes/form.php?id_producto=<?= (int) $producto['id_producto']; ?>" class="btn btn-sm btn-success">
                                                         Agregar lote
+                                                    </a>
+                                                </td>
+                                            <?php else: ?>
+                                                <td>
+                                                    <a href="<?= BASE_URL; ?>/modules/lotes/index.php?id_producto=<?= (int) $producto['id_producto']; ?>" class="btn btn-sm btn-outline-dark">
+                                                        Ver lotes
                                                     </a>
                                                 </td>
                                             <?php endif; ?>

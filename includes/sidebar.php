@@ -3,6 +3,14 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/session.php';
 
 $currentPage = $_SERVER['PHP_SELF'] ?? '';
+
+$isProductos = str_contains($currentPage, '/modules/productos/index.php')
+    || str_contains($currentPage, '/modules/productos/form.php')
+    || str_contains($currentPage, '/modules/lotes/index.php');
+
+$isPorVencer = str_contains($currentPage, '/modules/productos/por_vencer.php');
+$isStockBajo = str_contains($currentPage, '/modules/productos/stock_bajo.php');
+$isIngresarLote = str_contains($currentPage, '/modules/lotes/form.php');
 ?>
 
 <div class="col-12 col-md-3 col-lg-2 mb-3">
@@ -19,26 +27,26 @@ $currentPage = $_SERVER['PHP_SELF'] ?? '';
 
                 <a
                     href="<?= BASE_URL; ?>/modules/productos/index.php"
-                    class="list-group-item list-group-item-action <?= str_contains($currentPage, '/modules/productos/index.php') && !str_contains($currentPage, '/modules/productos/por_vencer.php') && !str_contains($currentPage, '/modules/productos/stock_bajo.php') ? 'active' : ''; ?>">
+                    class="list-group-item list-group-item-action <?= $isProductos && !$isPorVencer && !$isStockBajo ? 'active' : ''; ?>">
                     Productos
                 </a>
 
                 <a
                     href="<?= BASE_URL; ?>/modules/productos/por_vencer.php"
-                    class="list-group-item list-group-item-action <?= str_contains($currentPage, '/modules/productos/por_vencer.php') ? 'active' : ''; ?>">
+                    class="list-group-item list-group-item-action <?= $isPorVencer ? 'active' : ''; ?>">
                     Productos por vencer
                 </a>
 
                 <a
                     href="<?= BASE_URL; ?>/modules/productos/stock_bajo.php"
-                    class="list-group-item list-group-item-action <?= str_contains($currentPage, '/modules/productos/stock_bajo.php') ? 'active' : ''; ?>">
+                    class="list-group-item list-group-item-action <?= $isStockBajo ? 'active' : ''; ?>">
                     Stock bajo
                 </a>
 
                 <?php if (currentRole() === 'administradora'): ?>
                     <a
                         href="<?= BASE_URL; ?>/modules/lotes/form.php"
-                        class="list-group-item list-group-item-action <?= str_contains($currentPage, '/modules/lotes/form.php') ? 'active' : ''; ?>">
+                        class="list-group-item list-group-item-action <?= $isIngresarLote ? 'active' : ''; ?>">
                         Ingresar lote
                     </a>
 
