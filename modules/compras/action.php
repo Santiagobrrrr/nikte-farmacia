@@ -19,6 +19,16 @@ $costoUnitario = trim($_POST['costo_unitario'] ?? '');
 $cantidad = trim($_POST['cantidad'] ?? '');
 $idUsuario = (int) ($_SESSION['usuario_id'] ?? 0);
 
+$_SESSION['compra_old'] = [
+    'fecha_compra' => $fechaCompra,
+    'id_proveedor' => $idProveedor,
+    'id_producto' => $idProducto,
+    'codigo_lote' => $codigoLote,
+    'fecha_vencimiento' => $fechaVencimiento,
+    'costo_unitario' => $costoUnitario,
+    'cantidad' => $cantidad,
+];
+
 if (
     $fechaCompra === '' ||
     $idProveedor <= 0 ||
@@ -148,16 +158,22 @@ try {
 
     $pdo->commit();
 
+    unset($_SESSION['compra_old']);
     $_SESSION['compra_success'] = 'Compra registrada correctamente.';
     header('Location: ' . BASE_URL . '/modules/compras/index.php');
     exit;
 
 } catch (Throwable $e) {
-    if ($pdo->inTransaction()) {
+    if (isset($pdo) && $pdo->inTransaction()) {
         $pdo->rollBack();
     }
 
-    $_SESSION['compra_error'] = 'No se pudo registrar la compra. Verifica que el código de lote no esté repetido.';
+    if ((string) $e->getCode() === '23000') {
+        $_SESSION['compra_error'] = 'El código de lote ya existe. Debes ingresar uno diferente.';
+    } else {
+        $_SESSION['compra_error'] = 'No se pudo registrar la compra.';
+    }
+
     header('Location: ' . BASE_URL . '/modules/compras/form.php');
     exit;
 }

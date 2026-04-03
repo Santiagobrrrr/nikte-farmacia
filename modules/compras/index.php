@@ -83,6 +83,7 @@ try {
                                         <th>Proveedor</th>
                                         <th>Usuario</th>
                                         <th>Total compra</th>
+                                        <th width="120">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -93,6 +94,11 @@ try {
                                             <td><?= htmlspecialchars($compra['proveedor']); ?></td>
                                             <td><?= htmlspecialchars($compra['usuario']); ?></td>
                                             <td>Q<?= number_format((float) $compra['total_compra'], 2); ?></td>
+                                            <td>
+                                                <a href="<?= BASE_URL; ?>/modules/compras/show.php?id=<?= (int) $compra['id_compra']; ?>" class="btn btn-sm btn-outline-dark">
+                                                    Ver
+                                                </a>
+                                            </td>
                                         </tr>
                                     <?php endforeach; ?>
                                 </tbody>

@@ -7,6 +7,9 @@ require_once __DIR__ . '/../../includes/header.php';
 $error = $_SESSION['compra_error'] ?? '';
 unset($_SESSION['compra_error']);
 
+$old = $_SESSION['compra_old'] ?? [];
+unset($_SESSION['compra_old']);
+
 $proveedores = [];
 $productos = [];
 
@@ -51,7 +54,13 @@ try {
                         <div class="row">
                             <div class="col-12 col-md-6 mb-3">
                                 <label for="fecha_compra" class="form-label">Fecha de compra *</label>
-                                <input type="date" id="fecha_compra" name="fecha_compra" class="form-control" value="<?= date('Y-m-d'); ?>" required>
+                                <input
+                                    type="date"
+                                    id="fecha_compra"
+                                    name="fecha_compra"
+                                    class="form-control"
+                                    value="<?= htmlspecialchars($old['fecha_compra'] ?? date('Y-m-d')); ?>"
+                                    required>
                             </div>
 
                             <div class="col-12 col-md-6 mb-3">
@@ -59,7 +68,9 @@ try {
                                 <select id="id_proveedor" name="id_proveedor" class="form-select" required>
                                     <option value="">Seleccione un proveedor</option>
                                     <?php foreach ($proveedores as $proveedor): ?>
-                                        <option value="<?= (int) $proveedor['id_proveedor']; ?>">
+                                        <option
+                                            value="<?= (int) $proveedor['id_proveedor']; ?>"
+                                            <?= ((int) ($old['id_proveedor'] ?? 0) === (int) $proveedor['id_proveedor']) ? 'selected' : ''; ?>>
                                             <?= htmlspecialchars($proveedor['nombre']); ?>
                                         </option>
                                     <?php endforeach; ?>
@@ -73,7 +84,9 @@ try {
                                 <select id="id_producto" name="id_producto" class="form-select" required>
                                     <option value="">Seleccione un producto</option>
                                     <?php foreach ($productos as $producto): ?>
-                                        <option value="<?= (int) $producto['id_producto']; ?>">
+                                        <option
+                                            value="<?= (int) $producto['id_producto']; ?>"
+                                            <?= ((int) ($old['id_producto'] ?? 0) === (int) $producto['id_producto']) ? 'selected' : ''; ?>>
                                             <?= htmlspecialchars($producto['nombre']); ?>
                                         </option>
                                     <?php endforeach; ?>
@@ -82,22 +95,49 @@ try {
 
                             <div class="col-12 col-md-6 mb-3">
                                 <label for="codigo_lote" class="form-label">Código de lote *</label>
-                                <input type="text" id="codigo_lote" name="codigo_lote" class="form-control" required>
+                                <input
+                                    type="text"
+                                    id="codigo_lote"
+                                    name="codigo_lote"
+                                    class="form-control"
+                                    value="<?= htmlspecialchars($old['codigo_lote'] ?? ''); ?>"
+                                    required>
                             </div>
 
                             <div class="col-12 col-md-4 mb-3">
                                 <label for="fecha_vencimiento" class="form-label">Fecha de vencimiento *</label>
-                                <input type="date" id="fecha_vencimiento" name="fecha_vencimiento" class="form-control" required>
+                                <input
+                                    type="date"
+                                    id="fecha_vencimiento"
+                                    name="fecha_vencimiento"
+                                    class="form-control"
+                                    value="<?= htmlspecialchars($old['fecha_vencimiento'] ?? ''); ?>"
+                                    required>
                             </div>
 
                             <div class="col-12 col-md-4 mb-3">
                                 <label for="costo_unitario" class="form-label">Costo unitario *</label>
-                                <input type="number" step="0.01" min="0" id="costo_unitario" name="costo_unitario" class="form-control" required>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    id="costo_unitario"
+                                    name="costo_unitario"
+                                    class="form-control"
+                                    value="<?= htmlspecialchars($old['costo_unitario'] ?? ''); ?>"
+                                    required>
                             </div>
 
                             <div class="col-12 col-md-4 mb-3">
                                 <label for="cantidad" class="form-label">Cantidad *</label>
-                                <input type="number" min="1" id="cantidad" name="cantidad" class="form-control" required>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    id="cantidad"
+                                    name="cantidad"
+                                    class="form-control"
+                                    value="<?= htmlspecialchars($old['cantidad'] ?? ''); ?>"
+                                    required>
                             </div>
                         </div>
 
@@ -108,6 +148,10 @@ try {
                             </a>
                         </div>
                     </form>
+
+                    <div class="alert alert-info mt-4 mb-0">
+                        Esta es la base inicial del módulo. Más adelante puede ampliarse a compras con varios productos.
+                    </div>
                 </div>
             </div>
         </div>
