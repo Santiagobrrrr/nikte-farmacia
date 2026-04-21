@@ -8,8 +8,6 @@ $error = '';
 $success = $_SESSION['producto_success'] ?? '';
 unset($_SESSION['producto_success']);
 
-$busqueda = trim($_GET['q'] ?? '');
-
 try {
     $pdo = getPDO();
 
@@ -24,20 +22,8 @@ try {
                 p.requiere_receta,
                 COALESCE(SUM(l.cantidad_actual), 0) AS stock_actual
             FROM producto p
-            LEFT JOIN lote l ON l.id_producto = p.id_producto";
-
-    $params = [];
-
-    if ($busqueda !== '') {
-        $sql .= " WHERE
-                    p.nombre LIKE :q
-                    OR p.presentacion LIKE :q
-                    OR p.descripcion LIKE :q
-                    OR p.uso_terapeutico LIKE :q";
-        $params['q'] = '%' . $busqueda . '%';
-    }
-
-    $sql .= " GROUP BY
+            LEFT JOIN lote l ON l.id_producto = p.id_producto
+            GROUP BY
                 p.id_producto,
                 p.nombre,
                 p.presentacion,
@@ -46,10 +32,9 @@ try {
                 p.precio_venta,
                 p.stock_minimo,
                 p.requiere_receta
-              ORDER BY p.nombre ASC";
+            ORDER BY p.nombre ASC";
 
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
+    $stmt = $pdo->query($sql);
     $productos = $stmt->fetchAll();
 } catch (Throwable $e) {
     $error = 'No se pudo cargar el inventario.';
@@ -88,30 +73,25 @@ try {
                         </a>
 
                         <a href="<?= BASE_URL; ?>/modules/productos/por_vencer.php" class="btn btn-outline-danger btn-sm">
-                            Productos por vencer
+                            Inventario por vencer
                         </a>
                     </div>
 
-                    <form method="GET" action="<?= BASE_URL; ?>/modules/productos/index.php" class="row g-2 mb-3">
-                        <div class="col-12 col-md-8">
+                    <div class="row g-2 mb-3">
+                        <div class="col-12 col-md-10">
                             <input
                                 type="text"
-                                name="q"
+                                id="liveSearch"
                                 class="form-control"
-                                placeholder="Buscar por nombre, presentación, descripción o uso terapéutico"
-                                value="<?= htmlspecialchars($busqueda); ?>">
+                                placeholder="Buscar en tiempo real por nombre, presentación, descripción o uso terapéutico">
                         </div>
 
-                        <div class="col-6 col-md-2">
-                            <button type="submit" class="btn btn-primary w-100">Buscar</button>
-                        </div>
-
-                        <div class="col-6 col-md-2">
-                            <a href="<?= BASE_URL; ?>/modules/productos/index.php" class="btn btn-outline-secondary w-100">
+                        <div class="col-12 col-md-2">
+                            <button type="button" id="clearSearch" class="btn btn-outline-secondary w-100">
                                 Limpiar
-                            </a>
+                            </button>
                         </div>
-                    </form>
+                    </div>
 
                     <?php if (!empty($success)): ?>
                         <div class="alert alert-success">
@@ -125,7 +105,7 @@ try {
                         </div>
                     <?php elseif (empty($productos)): ?>
                         <div class="alert alert-warning">
-                            <?= $busqueda !== '' ? 'No se encontraron productos con esa búsqueda.' : 'No hay productos registrados todavía.'; ?>
+                            No hay productos registrados todavía.
                         </div>
                     <?php else: ?>
                         <div class="table-responsive">
@@ -159,8 +139,17 @@ try {
                                             $estado = 'Disponible';
                                             $clase = 'success';
                                         }
+
+                                        $textoBusqueda = mb_strtolower(
+                                            ($producto['nombre'] ?? '') . ' ' .
+                                            ($producto['presentacion'] ?? '') . ' ' .
+                                            ($producto['descripcion'] ?? '') . ' ' .
+                                            ($producto['uso_terapeutico'] ?? '')
+                                        );
                                         ?>
-                                        <tr>
+                                        <tr
+                                            class="inventario-row"
+                                            data-search="<?= htmlspecialchars($textoBusqueda); ?>">
                                             <td><?= (int) $producto['id_producto']; ?></td>
                                             <td><?= htmlspecialchars($producto['nombre']); ?></td>
                                             <td><?= htmlspecialchars($producto['presentacion'] ?? ''); ?></td>
@@ -190,6 +179,10 @@ try {
                             </table>
                         </div>
 
+                        <div id="noResultsMessage" class="alert alert-warning mt-3 d-none">
+                            No se encontraron productos con esa búsqueda.
+                        </div>
+
                         <div class="alert alert-info mt-3 mb-0">
                             El stock actual se calcula sumando las existencias de todos los lotes del producto.
                         </div>
@@ -199,5 +192,55 @@ try {
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const input = document.getElementById('liveSearch');
+    const clearBtn = document.getElementById('clearSearch');
+    const rows = document.querySelectorAll('.inventario-row');
+    const noResultsMessage = document.getElementById('noResultsMessage');
+
+    if (!input || !clearBtn || rows.length === 0 || !noResultsMessage) {
+        return;
+    }
+
+    function normalizeText(text) {
+        return text
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+    }
+
+    function filterRows() {
+        const query = normalizeText(input.value.trim());
+        let visibleCount = 0;
+
+        rows.forEach(row => {
+            const searchText = normalizeText(row.dataset.search || '');
+
+            if (query === '' || searchText.includes(query)) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        if (visibleCount === 0) {
+            noResultsMessage.classList.remove('d-none');
+        } else {
+            noResultsMessage.classList.add('d-none');
+        }
+    }
+
+    input.addEventListener('input', filterRows);
+
+    clearBtn.addEventListener('click', function () {
+        input.value = '';
+        filterRows();
+        input.focus();
+    });
+});
+</script>
 
 <?php require_once __DIR__ . '/../../includes/footer.php'; ?>
