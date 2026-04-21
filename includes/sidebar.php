@@ -29,7 +29,7 @@ $isUsuarios = str_contains($currentPage, '/modules/usuarios/');
 
                 <a href="<?= BASE_URL; ?>/modules/productos/index.php"
                    class="list-group-item list-group-item-action <?= $isProductos ? 'active' : ''; ?>">
-                    Productos
+                    Inventario
                 </a>
 
                 <a href="<?= BASE_URL; ?>/modules/proveedores/index.php"

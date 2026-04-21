@@ -35,14 +35,14 @@ try {
             <div class="card shadow-sm">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h1 class="mb-0">Productos por vencer</h1>
+                        <h1 class="mb-0">Inventario por vencer</h1>
                         <a href="<?= BASE_URL; ?>/modules/productos/index.php" class="btn btn-outline-secondary">
-                            Volver a productos
+                            Volver a Inventario
                         </a>
                     </div>
                     <div class="d-flex flex-wrap gap-2 mb-3">
                         <a href="<?= BASE_URL; ?>/modules/productos/index.php" class="btn btn-outline-primary btn-sm">
-                            Ver productos
+                            Ver Inventario
                         </a>
 
                         <a href="<?= BASE_URL; ?>/modules/productos/stock_bajo.php" class="btn btn-outline-warning btn-sm">
@@ -50,7 +50,7 @@ try {
                         </a>
 
                         <a href="<?= BASE_URL; ?>/modules/productos/por_vencer.php" class="btn btn-outline-danger btn-sm">
-                            Productos por vencer
+                            Inventario por vencer
                         </a>
 
                     </div>

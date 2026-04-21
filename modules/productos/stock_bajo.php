@@ -40,15 +40,15 @@ try {
             <div class="card shadow-sm">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h1 class="mb-0">Productos con stock bajo</h1>
+                        <h1 class="mb-0">Inventario con stock bajo</h1>
                         <a href="<?= BASE_URL; ?>/modules/productos/index.php" class="btn btn-outline-secondary">
-                            Volver a productos
+                            Volver a Inventario
                         </a>
                     </div>
 
                     <div class="d-flex flex-wrap gap-2 mb-3">
                         <a href="<?= BASE_URL; ?>/modules/productos/index.php" class="btn btn-outline-primary btn-sm">
-                            Ver productos
+                            Ver inventario
                         </a>
 
                         <a href="<?= BASE_URL; ?>/modules/productos/stock_bajo.php" class="btn btn-outline-warning btn-sm">

@@ -71,7 +71,7 @@ try {
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h1 class="mb-0">Lotes del producto</h1>
                         <a href="<?= BASE_URL; ?>/modules/productos/index.php" class="btn btn-secondary">
-                            Volver a productos
+                            Volver a inventario
                         </a>
                     </div>
 
