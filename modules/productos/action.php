@@ -18,6 +18,7 @@ $precioVenta = trim($_POST['precio_venta'] ?? '');
 $stockMinimo = trim($_POST['stock_minimo'] ?? '');
 $requiereReceta = isset($_POST['requiere_receta']) ? (int) $_POST['requiere_receta'] : 0;
 $usoTerapeutico = trim($_POST['uso_terapeutico'] ?? '');
+$activo = isset($_POST['activo']) ? (int) $_POST['activo'] : 1;
 
 if ($nombre === '' || $precioVenta === '' || $stockMinimo === '') {
     $_SESSION['producto_error'] = 'Debes completar los campos obligatorios.';
@@ -46,6 +47,8 @@ if (!is_numeric($stockMinimo) || (int)$stockMinimo < 0) {
     exit;
 }
 
+$activo = $activo === 0 ? 0 : 1;
+
 try {
     $pdo = getPDO();
 
@@ -57,7 +60,8 @@ try {
                     precio_venta = :precio_venta,
                     stock_minimo = :stock_minimo,
                     requiere_receta = :requiere_receta,
-                    uso_terapeutico = :uso_terapeutico
+                    uso_terapeutico = :uso_terapeutico,
+                    activo = :activo
                 WHERE id_producto = :id_producto";
 
         $stmt = $pdo->prepare($sql);
@@ -69,6 +73,7 @@ try {
             'stock_minimo' => (int) $stockMinimo,
             'requiere_receta' => $requiereReceta === 1 ? 1 : 0,
             'uso_terapeutico' => $usoTerapeutico !== '' ? $usoTerapeutico : null,
+            'activo' => $activo,
             'id_producto' => $idProducto,
         ]);
 
@@ -81,7 +86,8 @@ try {
                     precio_venta,
                     stock_minimo,
                     requiere_receta,
-                    uso_terapeutico
+                    uso_terapeutico,
+                    activo
                 ) VALUES (
                     :nombre,
                     :descripcion,
@@ -89,7 +95,8 @@ try {
                     :precio_venta,
                     :stock_minimo,
                     :requiere_receta,
-                    :uso_terapeutico
+                    :uso_terapeutico,
+                    :activo
                 )";
 
         $stmt = $pdo->prepare($sql);
@@ -101,6 +108,7 @@ try {
             'stock_minimo' => (int) $stockMinimo,
             'requiere_receta' => $requiereReceta === 1 ? 1 : 0,
             'uso_terapeutico' => $usoTerapeutico !== '' ? $usoTerapeutico : null,
+            'activo' => $activo,
         ]);
 
         $_SESSION['producto_success'] = 'Producto guardado correctamente.';

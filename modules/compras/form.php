@@ -19,7 +19,7 @@ try {
     $stmt = $pdo->query("SELECT id_proveedor, nombre FROM proveedor ORDER BY nombre ASC");
     $proveedores = $stmt->fetchAll();
 
-    $stmt = $pdo->query("SELECT id_producto, nombre FROM producto ORDER BY nombre ASC");
+    $stmt = $pdo->query("SELECT id_producto, nombre FROM producto WHERE activo = 1 ORDER BY nombre ASC");
     $productos = $stmt->fetchAll();
 } catch (Throwable $e) {
     $error = 'No se pudieron cargar los datos del formulario.';

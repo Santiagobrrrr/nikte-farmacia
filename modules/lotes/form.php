@@ -14,8 +14,9 @@ try {
     $pdo = getPDO();
 
     $sql = "SELECT id_producto, nombre
-            FROM producto
-            ORDER BY nombre ASC";
+        FROM producto
+        WHERE activo = 1
+        ORDER BY nombre ASC";
 
     $stmt = $pdo->query($sql);
     $productos = $stmt->fetchAll();

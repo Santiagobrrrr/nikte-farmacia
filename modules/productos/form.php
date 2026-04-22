@@ -19,13 +19,14 @@ $producto = [
     'stock_minimo' => '',
     'requiere_receta' => 0,
     'uso_terapeutico' => '',
+    'activo' => 1,
 ];
 
 if ($modoEdicion) {
     try {
         $pdo = getPDO();
 
-        $sql = "SELECT id_producto, nombre, presentacion, descripcion, precio_venta, stock_minimo, requiere_receta, uso_terapeutico
+        $sql = "SELECT id_producto, nombre, presentacion, descripcion, precio_venta, stock_minimo, requiere_receta, uso_terapeutico, activo
                 FROM producto
                 WHERE id_producto = :id_producto
                 LIMIT 1";
@@ -64,10 +65,6 @@ if ($modoEdicion) {
                         </a>
                     </div>
 
-                    <p class="text-muted">
-                        <?= $modoEdicion ? 'Actualiza la información del producto.' : 'Formulario para registrar un producto.'; ?>
-                    </p>
-
                     <?php if (!empty($error)): ?>
                         <div class="alert alert-danger">
                             <?= htmlspecialchars($error); ?>
@@ -80,60 +77,34 @@ if ($modoEdicion) {
                         <div class="row">
                             <div class="col-12 col-md-6 mb-3">
                                 <label for="nombre" class="form-label">Nombre *</label>
-                                <input
-                                    type="text"
-                                    id="nombre"
-                                    name="nombre"
-                                    class="form-control"
-                                    required
-                                    value="<?= htmlspecialchars((string) $producto['nombre']); ?>">
+                                <input type="text" id="nombre" name="nombre" class="form-control" required
+                                       value="<?= htmlspecialchars((string) $producto['nombre']); ?>">
                             </div>
 
                             <div class="col-12 col-md-6 mb-3">
                                 <label for="presentacion" class="form-label">Presentación</label>
-                                <input
-                                    type="text"
-                                    id="presentacion"
-                                    name="presentacion"
-                                    class="form-control"
-                                    value="<?= htmlspecialchars((string) ($producto['presentacion'] ?? '')); ?>">
+                                <input type="text" id="presentacion" name="presentacion" class="form-control"
+                                       value="<?= htmlspecialchars((string) ($producto['presentacion'] ?? '')); ?>">
                             </div>
 
                             <div class="col-12 mb-3">
                                 <label for="descripcion" class="form-label">Descripción</label>
-                                <textarea
-                                    id="descripcion"
-                                    name="descripcion"
-                                    class="form-control"
-                                    rows="3"><?= htmlspecialchars((string) ($producto['descripcion'] ?? '')); ?></textarea>
+                                <textarea id="descripcion" name="descripcion" class="form-control" rows="3"><?= htmlspecialchars((string) ($producto['descripcion'] ?? '')); ?></textarea>
                             </div>
 
-                            <div class="col-12 col-md-4 mb-3">
+                            <div class="col-12 col-md-3 mb-3">
                                 <label for="precio_venta" class="form-label">Precio de venta *</label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    id="precio_venta"
-                                    name="precio_venta"
-                                    class="form-control"
-                                    required
-                                    value="<?= htmlspecialchars((string) $producto['precio_venta']); ?>">
+                                <input type="number" step="0.01" min="0" id="precio_venta" name="precio_venta" class="form-control" required
+                                       value="<?= htmlspecialchars((string) $producto['precio_venta']); ?>">
                             </div>
 
-                            <div class="col-12 col-md-4 mb-3">
+                            <div class="col-12 col-md-3 mb-3">
                                 <label for="stock_minimo" class="form-label">Stock mínimo *</label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    id="stock_minimo"
-                                    name="stock_minimo"
-                                    class="form-control"
-                                    required
-                                    value="<?= htmlspecialchars((string) $producto['stock_minimo']); ?>">
+                                <input type="number" min="0" id="stock_minimo" name="stock_minimo" class="form-control" required
+                                       value="<?= htmlspecialchars((string) $producto['stock_minimo']); ?>">
                             </div>
 
-                            <div class="col-12 col-md-4 mb-3">
+                            <div class="col-12 col-md-3 mb-3">
                                 <label for="requiere_receta" class="form-label">Requiere receta</label>
                                 <select id="requiere_receta" name="requiere_receta" class="form-select" required>
                                     <option value="0" <?= (int) $producto['requiere_receta'] === 0 ? 'selected' : ''; ?>>No</option>
@@ -141,14 +112,18 @@ if ($modoEdicion) {
                                 </select>
                             </div>
 
+                            <div class="col-12 col-md-3 mb-3">
+                                <label for="activo" class="form-label">Estado del registro</label>
+                                <select id="activo" name="activo" class="form-select" required>
+                                    <option value="1" <?= (int) $producto['activo'] === 1 ? 'selected' : ''; ?>>Activo</option>
+                                    <option value="0" <?= (int) $producto['activo'] === 0 ? 'selected' : ''; ?>>Inactivo</option>
+                                </select>
+                            </div>
+
                             <div class="col-12 mb-3">
                                 <label for="uso_terapeutico" class="form-label">Uso terapéutico</label>
-                                <input
-                                    type="text"
-                                    id="uso_terapeutico"
-                                    name="uso_terapeutico"
-                                    class="form-control"
-                                    value="<?= htmlspecialchars((string) ($producto['uso_terapeutico'] ?? '')); ?>">
+                                <input type="text" id="uso_terapeutico" name="uso_terapeutico" class="form-control"
+                                       value="<?= htmlspecialchars((string) ($producto['uso_terapeutico'] ?? '')); ?>">
                             </div>
                         </div>
 

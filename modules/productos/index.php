@@ -8,6 +8,8 @@ $error = '';
 $success = $_SESSION['producto_success'] ?? '';
 unset($_SESSION['producto_success']);
 
+$busqueda = trim($_GET['q'] ?? '');
+
 try {
     $pdo = getPDO();
 
@@ -20,10 +22,28 @@ try {
                 p.precio_venta,
                 p.stock_minimo,
                 p.requiere_receta,
+                p.activo,
                 COALESCE(SUM(l.cantidad_actual), 0) AS stock_actual
             FROM producto p
-            LEFT JOIN lote l ON l.id_producto = p.id_producto
-            GROUP BY
+            LEFT JOIN lote l ON l.id_producto = p.id_producto";
+
+    $params = [];
+    $conditions = [];
+
+    if (currentRole() !== 'administradora') {
+        $conditions[] = "p.activo = 1";
+    }
+
+    if ($busqueda !== '') {
+        $conditions[] = "(p.nombre LIKE :q OR p.presentacion LIKE :q OR p.descripcion LIKE :q OR p.uso_terapeutico LIKE :q)";
+        $params['q'] = '%' . $busqueda . '%';
+    }
+
+    if (!empty($conditions)) {
+        $sql .= " WHERE " . implode(' AND ', $conditions);
+    }
+
+    $sql .= " GROUP BY
                 p.id_producto,
                 p.nombre,
                 p.presentacion,
@@ -31,10 +51,12 @@ try {
                 p.uso_terapeutico,
                 p.precio_venta,
                 p.stock_minimo,
-                p.requiere_receta
-            ORDER BY p.nombre ASC";
+                p.requiere_receta,
+                p.activo
+              ORDER BY p.nombre ASC";
 
-    $stmt = $pdo->query($sql);
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
     $productos = $stmt->fetchAll();
 } catch (Throwable $e) {
     $error = 'No se pudo cargar el inventario.';
@@ -105,7 +127,7 @@ try {
                         </div>
                     <?php elseif (empty($productos)): ?>
                         <div class="alert alert-warning">
-                            No hay productos registrados todavía.
+                            No se encontraron productos.
                         </div>
                     <?php else: ?>
                         <div class="table-responsive">
@@ -118,9 +140,10 @@ try {
                                         <th>Precio</th>
                                         <th>Stock mínimo</th>
                                         <th>Stock actual</th>
-                                        <th>Estado</th>
+                                        <th>Estado stock</th>
+                                        <th>Registro</th>
                                         <th>Receta</th>
-                                        <th width="220">Acciones</th>
+                                        <th width="280">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -128,16 +151,17 @@ try {
                                         <?php
                                         $stockActual = (int) $producto['stock_actual'];
                                         $stockMinimo = (int) $producto['stock_minimo'];
+                                        $activo = (int) $producto['activo'] === 1;
 
                                         if ($stockActual <= 0) {
-                                            $estado = 'Agotado';
-                                            $clase = 'danger';
+                                            $estadoStock = 'Agotado';
+                                            $claseStock = 'danger';
                                         } elseif ($stockActual <= $stockMinimo) {
-                                            $estado = 'Stock bajo';
-                                            $clase = 'warning';
+                                            $estadoStock = 'Stock bajo';
+                                            $claseStock = 'warning';
                                         } else {
-                                            $estado = 'Disponible';
-                                            $clase = 'success';
+                                            $estadoStock = 'Disponible';
+                                            $claseStock = 'success';
                                         }
 
                                         $textoBusqueda = mb_strtolower(
@@ -147,8 +171,7 @@ try {
                                             ($producto['uso_terapeutico'] ?? '')
                                         );
                                         ?>
-                                        <tr
-                                            class="inventario-row"
+                                        <tr class="inventario-row <?= !$activo ? 'table-secondary' : ''; ?>"
                                             data-search="<?= htmlspecialchars($textoBusqueda); ?>">
                                             <td><?= (int) $producto['id_producto']; ?></td>
                                             <td><?= htmlspecialchars($producto['nombre']); ?></td>
@@ -157,8 +180,13 @@ try {
                                             <td><?= $stockMinimo; ?></td>
                                             <td><?= $stockActual; ?></td>
                                             <td>
-                                                <span class="badge text-bg-<?= $clase; ?>">
-                                                    <?= $estado; ?>
+                                                <span class="badge text-bg-<?= $claseStock; ?>">
+                                                    <?= $estadoStock; ?>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="badge text-bg-<?= $activo ? 'primary' : 'secondary'; ?>">
+                                                    <?= $activo ? 'Activo' : 'Inactivo'; ?>
                                                 </span>
                                             </td>
                                             <td><?= (int) $producto['requiere_receta'] === 1 ? 'Sí' : 'No'; ?></td>
@@ -171,6 +199,18 @@ try {
                                                     <a href="<?= BASE_URL; ?>/modules/productos/form.php?id=<?= (int) $producto['id_producto']; ?>" class="btn btn-sm btn-primary mb-1">
                                                         Editar
                                                     </a>
+
+                                                    <?php if ($activo): ?>
+                                                        <a href="<?= BASE_URL; ?>/modules/productos/toggle_status.php?id=<?= (int) $producto['id_producto']; ?>&accion=desactivar"
+                                                           class="btn btn-sm btn-outline-warning">
+                                                            Desactivar
+                                                        </a>
+                                                    <?php else: ?>
+                                                        <a href="<?= BASE_URL; ?>/modules/productos/toggle_status.php?id=<?= (int) $producto['id_producto']; ?>&accion=activar"
+                                                           class="btn btn-sm btn-outline-success">
+                                                            Activar
+                                                        </a>
+                                                    <?php endif; ?>
                                                 <?php endif; ?>
                                             </td>
                                         </tr>
