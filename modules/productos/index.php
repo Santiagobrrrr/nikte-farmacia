@@ -14,18 +14,23 @@ try {
     $pdo = getPDO();
 
     $sql = "SELECT
-                p.id_producto,
-                p.nombre,
-                p.presentacion,
-                p.descripcion,
-                p.uso_terapeutico,
-                p.precio_venta,
-                p.stock_minimo,
-                p.requiere_receta,
-                p.activo,
-                COALESCE(SUM(l.cantidad_actual), 0) AS stock_actual
-            FROM producto p
-            LEFT JOIN lote l ON l.id_producto = p.id_producto";
+            p.id_producto,
+            p.nombre,
+            p.presentacion,
+            p.descripcion,
+            p.uso_terapeutico,
+            p.precio_venta,
+            p.stock_minimo,
+            p.requiere_receta,
+            p.activo,
+            COALESCE(SUM(
+                CASE
+                    WHEN l.fecha_vencimiento >= CURDATE() THEN l.cantidad_actual
+                    ELSE 0
+                END
+            ), 0) AS stock_actual
+        FROM producto p
+        LEFT JOIN lote l ON l.id_producto = p.id_producto";
 
     $params = [];
     $conditions = [];
@@ -221,10 +226,6 @@ try {
 
                         <div id="noResultsMessage" class="alert alert-warning mt-3 d-none">
                             No se encontraron productos con esa búsqueda.
-                        </div>
-
-                        <div class="alert alert-info mt-3 mb-0">
-                            El stock actual se calcula sumando las existencias de todos los lotes del producto.
                         </div>
                     <?php endif; ?>
                 </div>

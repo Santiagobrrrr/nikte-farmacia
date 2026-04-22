@@ -19,16 +19,21 @@ try {
     $pdo = getPDO();
 
     $sqlProducto = "SELECT
-                        p.id_producto,
-                        p.nombre,
-                        p.presentacion,
-                        p.stock_minimo,
-                        COALESCE(SUM(l.cantidad_actual), 0) AS stock_actual
-                    FROM producto p
-                    LEFT JOIN lote l ON l.id_producto = p.id_producto
-                    WHERE p.id_producto = :id_producto
-                    GROUP BY p.id_producto, p.nombre, p.presentacion, p.stock_minimo
-                    LIMIT 1";
+                    p.id_producto,
+                    p.nombre,
+                    p.presentacion,
+                    p.stock_minimo,
+                    COALESCE(SUM(
+                        CASE
+                            WHEN l.fecha_vencimiento >= CURDATE() THEN l.cantidad_actual
+                            ELSE 0
+                        END
+                    ), 0) AS stock_actual
+                FROM producto p
+                LEFT JOIN lote l ON l.id_producto = p.id_producto
+                WHERE p.id_producto = :id_producto
+                GROUP BY p.id_producto, p.nombre, p.presentacion, p.stock_minimo
+                LIMIT 1";
 
     $stmtProducto = $pdo->prepare($sqlProducto);
     $stmtProducto->execute(['id_producto' => $idProducto]);
