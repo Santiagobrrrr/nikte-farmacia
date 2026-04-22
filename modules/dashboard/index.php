@@ -9,21 +9,10 @@ unset($_SESSION['access_error']);
 $error = '';
 
 $stats = [
-    'productos' => 0,
-    'lotes' => 0,
-    'usuarios' => 0,
-    'clientes' => 0,
-    'proveedores' => 0,
-    'compras' => 0,
-    'ventas' => 0,
-    'recetas' => 0,
-    'detalle_compras' => 0,
-    'detalle_ventas' => 0,
+    'productos_activos' => 0,
+    'lotes_vigentes' => 0,
     'stock_bajo' => 0,
     'por_vencer' => 0,
-    'ventas_hoy' => 0,
-    'monto_ventas_hoy' => 0,
-    'compras_hoy' => 0,
 ];
 
 $alertasStock = [];
@@ -37,56 +26,60 @@ try {
         return $value !== false ? $value : 0;
     };
 
-    $stats['productos'] = (int) $fetchValue("SELECT COUNT(*) FROM producto");
-    $stats['lotes'] = (int) $fetchValue("SELECT COUNT(*) FROM lote");
-    $stats['usuarios'] = (int) $fetchValue("SELECT COUNT(*) FROM usuario");
-    $stats['clientes'] = (int) $fetchValue("SELECT COUNT(*) FROM cliente");
-    $stats['proveedores'] = (int) $fetchValue("SELECT COUNT(*) FROM proveedor");
-    $stats['compras'] = (int) $fetchValue("SELECT COUNT(*) FROM compra");
-    $stats['ventas'] = (int) $fetchValue("SELECT COUNT(*) FROM venta");
-    $stats['recetas'] = (int) $fetchValue("SELECT COUNT(*) FROM receta");
-    $stats['detalle_compras'] = (int) $fetchValue("SELECT COUNT(*) FROM detallecompra");
-    $stats['detalle_ventas'] = (int) $fetchValue("SELECT COUNT(*) FROM detalleventa");
+    $stats['productos_activos'] = (int) $fetchValue("
+        SELECT COUNT(*)
+        FROM producto
+        WHERE activo = 1
+    ");
+
+    $stats['lotes_vigentes'] = (int) $fetchValue("
+        SELECT COUNT(*)
+        FROM lote
+        WHERE fecha_vencimiento >= CURDATE()
+          AND cantidad_actual > 0
+    ");
 
     $stats['stock_bajo'] = (int) $fetchValue("
         SELECT COUNT(*) FROM (
             SELECT p.id_producto
             FROM producto p
             LEFT JOIN lote l ON l.id_producto = p.id_producto
+            WHERE p.activo = 1
             GROUP BY p.id_producto, p.stock_minimo
-            HAVING COALESCE(SUM(l.cantidad_actual), 0) <= p.stock_minimo
+            HAVING COALESCE(SUM(
+                CASE
+                    WHEN l.fecha_vencimiento >= CURDATE() THEN l.cantidad_actual
+                    ELSE 0
+                END
+            ), 0) <= p.stock_minimo
         ) AS t
     ");
 
-    $stats['por_vencer'] = (int) $fetchValue("SELECT COUNT(*) FROM productos_por_vencer");
-
-    $stats['ventas_hoy'] = (int) $fetchValue("
+    $stats['por_vencer'] = (int) $fetchValue("
         SELECT COUNT(*)
-        FROM venta
-        WHERE DATE(fecha_venta) = CURDATE()
-    ");
-
-    $stats['monto_ventas_hoy'] = (float) $fetchValue("
-        SELECT COALESCE(SUM(total_venta), 0)
-        FROM venta
-        WHERE DATE(fecha_venta) = CURDATE()
-    ");
-
-    $stats['compras_hoy'] = (int) $fetchValue("
-        SELECT COUNT(*)
-        FROM compra
-        WHERE fecha_compra = CURDATE()
+        FROM productos_por_vencer
     ");
 
     $sqlStock = "
         SELECT
             p.nombre,
             p.stock_minimo,
-            COALESCE(SUM(l.cantidad_actual), 0) AS stock_actual
+            COALESCE(SUM(
+                CASE
+                    WHEN l.fecha_vencimiento >= CURDATE() THEN l.cantidad_actual
+                    ELSE 0
+                END
+            ), 0) AS stock_actual
         FROM producto p
         LEFT JOIN lote l ON l.id_producto = p.id_producto
+        WHERE p.activo = 1
         GROUP BY p.id_producto, p.nombre, p.stock_minimo
-        HAVING COALESCE(SUM(l.cantidad_actual), 0) <= p.stock_minimo
+        HAVING COALESCE(SUM(
+            CASE
+                WHEN l.fecha_vencimiento >= CURDATE() THEN l.cantidad_actual
+                ELSE 0
+            END
+        ), 0) <= p.stock_minimo
         ORDER BY stock_actual ASC, p.nombre ASC
         LIMIT 5
     ";
@@ -124,9 +117,6 @@ try {
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <div>
                     <h1 class="mb-1">Dashboard</h1>
-                    <p class="text-muted mb-0">
-                        Resumen general del sistema y alertas rápidas.
-                    </p>
                 </div>
                 <div class="text-end">
                     <div><strong>Usuario:</strong> <?= htmlspecialchars(currentUserName()); ?></div>
@@ -144,8 +134,8 @@ try {
                     <div class="col-12 col-sm-6 col-xl-3">
                         <div class="card shadow-sm border-0">
                             <div class="card-body">
-                                <h6 class="text-muted">Productos</h6>
-                                <h2 class="mb-0"><?= $stats['productos']; ?></h2>
+                                <h6 class="text-muted">Productos activos</h6>
+                                <h2 class="mb-0"><?= $stats['productos_activos']; ?></h2>
                             </div>
                         </div>
                     </div>
@@ -153,8 +143,8 @@ try {
                     <div class="col-12 col-sm-6 col-xl-3">
                         <div class="card shadow-sm border-0">
                             <div class="card-body">
-                                <h6 class="text-muted">Lotes</h6>
-                                <h2 class="mb-0"><?= $stats['lotes']; ?></h2>
+                                <h6 class="text-muted">Lotes vigentes</h6>
+                                <h2 class="mb-0"><?= $stats['lotes_vigentes']; ?></h2>
                             </div>
                         </div>
                     </div>
@@ -178,84 +168,7 @@ try {
                     </div>
                 </div>
 
-                <div class="row g-3 mb-4">
-                    <div class="col-12 col-md-6 col-xl-3">
-                        <div class="card shadow-sm">
-                            <div class="card-body">
-                                <h6 class="text-muted">Ventas de hoy</h6>
-                                <h3 class="mb-1"><?= $stats['ventas_hoy']; ?></h3>
-                                <small class="text-muted">Monto: Q<?= number_format((float) $stats['monto_ventas_hoy'], 2); ?></small>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-12 col-md-6 col-xl-3">
-                        <div class="card shadow-sm">
-                            <div class="card-body">
-                                <h6 class="text-muted">Compras de hoy</h6>
-                                <h3 class="mb-0"><?= $stats['compras_hoy']; ?></h3>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-12 col-md-6 col-xl-3">
-                        <div class="card shadow-sm">
-                            <div class="card-body">
-                                <h6 class="text-muted">Usuarios</h6>
-                                <h3 class="mb-0"><?= $stats['usuarios']; ?></h3>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-12 col-md-6 col-xl-3">
-                        <div class="card shadow-sm">
-                            <div class="card-body">
-                                <h6 class="text-muted">Proveedores</h6>
-                                <h3 class="mb-0"><?= $stats['proveedores']; ?></h3>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row g-3 mb-4">
-                    <div class="col-12 col-md-6 col-xl-3">
-                        <div class="card shadow-sm">
-                            <div class="card-body">
-                                <h6 class="text-muted">Clientes</h6>
-                                <h3 class="mb-0"><?= $stats['clientes']; ?></h3>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-12 col-md-6 col-xl-3">
-                        <div class="card shadow-sm">
-                            <div class="card-body">
-                                <h6 class="text-muted">Compras</h6>
-                                <h3 class="mb-0"><?= $stats['compras']; ?></h3>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-12 col-md-6 col-xl-3">
-                        <div class="card shadow-sm">
-                            <div class="card-body">
-                                <h6 class="text-muted">Ventas</h6>
-                                <h3 class="mb-0"><?= $stats['ventas']; ?></h3>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-12 col-md-6 col-xl-3">
-                        <div class="card shadow-sm">
-                            <div class="card-body">
-                                <h6 class="text-muted">Recetas</h6>
-                                <h3 class="mb-0"><?= $stats['recetas']; ?></h3>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row g-3 mb-4">
+                <div class="row g-3">
                     <div class="col-12 col-md-6">
                         <div class="card shadow-sm h-100">
                             <div class="card-body">
@@ -328,25 +241,6 @@ try {
                         </div>
                     </div>
                 </div>
-
-                <?php if (currentRole() === 'administradora'): ?>
-                    <div class="card shadow-sm">
-                        <div class="card-body">
-                            <h5 class="mb-3">Resumen administrativo</h5>
-                            <div class="row">
-                                <div class="col-12 col-md-4 mb-2">
-                                    <strong>Detalle de compras:</strong> <?= $stats['detalle_compras']; ?>
-                                </div>
-                                <div class="col-12 col-md-4 mb-2">
-                                    <strong>Detalle de ventas:</strong> <?= $stats['detalle_ventas']; ?>
-                                </div>
-                                <div class="col-12 col-md-4 mb-2">
-                                    <strong>Estado actual:</strong> Sistema operativo
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                <?php endif; ?>
 
             <?php endif; ?>
         </div>
