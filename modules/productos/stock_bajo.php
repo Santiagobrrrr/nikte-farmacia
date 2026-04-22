@@ -9,21 +9,31 @@ $error = '';
 try {
     $pdo = getPDO();
 
-    $sql = "SELECT
-                p.id_producto,
-                p.nombre,
-                p.presentacion,
-                p.stock_minimo,
-                COALESCE(SUM(l.cantidad_actual), 0) AS stock_actual
-            FROM producto p
-            LEFT JOIN lote l ON l.id_producto = p.id_producto
-            GROUP BY
-                p.id_producto,
-                p.nombre,
-                p.presentacion,
-                p.stock_minimo
-            HAVING COALESCE(SUM(l.cantidad_actual), 0) <= p.stock_minimo
-            ORDER BY stock_actual ASC, p.nombre ASC";
+$sql = "SELECT
+            p.id_producto,
+            p.nombre,
+            p.presentacion,
+            p.stock_minimo,
+            COALESCE(SUM(
+                CASE
+                    WHEN l.fecha_vencimiento >= CURDATE() THEN l.cantidad_actual
+                    ELSE 0
+                END
+            ), 0) AS stock_actual
+        FROM producto p
+        LEFT JOIN lote l ON l.id_producto = p.id_producto
+        GROUP BY
+            p.id_producto,
+            p.nombre,
+            p.presentacion,
+            p.stock_minimo
+        HAVING COALESCE(SUM(
+            CASE
+                WHEN l.fecha_vencimiento >= CURDATE() THEN l.cantidad_actual
+                ELSE 0
+            END
+        ), 0) <= p.stock_minimo
+        ORDER BY stock_actual ASC, p.nombre ASC";
 
     $stmt = $pdo->query($sql);
     $productos = $stmt->fetchAll();
