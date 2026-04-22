@@ -124,4 +124,4 @@ try {
         : BASE_URL . '/modules/productos/form.php';
     header('Location: ' . $redirect);
     exit;
-}
+}   

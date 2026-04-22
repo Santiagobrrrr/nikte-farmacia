@@ -42,11 +42,12 @@ $isUsuarios = str_contains($currentPage, '/modules/usuarios/');
                      Compras
                 </a>
 
-                <a href="#"
-                   class="list-group-item list-group-item-action disabled">
-                    Ventas
+                <a href="<?= BASE_URL; ?>/modules/ventas/index.php"
+                    class="list-group-item list-group-item-action <?= $isVentas ? 'active' : ''; ?>">
+                Ventas
+    
                 </a>
-
+                
                 <a href="#"
                    class="list-group-item list-group-item-action disabled">
                     Reportes
