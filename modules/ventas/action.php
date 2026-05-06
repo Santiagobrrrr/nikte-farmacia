@@ -13,22 +13,44 @@ $nombreCliente = trim($_POST['nombre_cliente'] ?? '');
 $metodoPago = trim($_POST['metodo_pago'] ?? 'efectivo');
 $productosPost = $_POST['productos'] ?? [];
 
+if ($nombreCliente === '') {
+    $nombreCliente = 'Consumidor final';
+}
+
+$metodosPermitidos = ['efectivo', 'tarjeta', 'transferencia'];
+if (!in_array($metodoPago, $metodosPermitidos, true)) {
+    $metodoPago = 'efectivo';
+}
+
 $_SESSION['venta_old'] = [
-    'nombre_cliente' => $nombreCliente,
+    'nombre_cliente' => $nombreCliente === 'Consumidor final' ? '' : $nombreCliente,
     'metodo_pago' => $metodoPago,
     'productos' => $productosPost,
 ];
-
-if ($nombreCliente === '') {
-    $_SESSION['venta_error'] = 'El nombre del cliente es obligatorio.';
-    header('Location: ' . BASE_URL . '/modules/ventas/form.php');
-    exit;
-}
 
 if (!is_array($productosPost) || empty($productosPost)) {
     $_SESSION['venta_error'] = 'Debes agregar al menos un producto.';
     header('Location: ' . BASE_URL . '/modules/ventas/form.php');
     exit;
+}
+
+$productosAgrupados = [];
+
+foreach ($productosPost as $item) {
+    $idProducto = (int) ($item['id_producto'] ?? 0);
+    $cantidad = (int) ($item['cantidad'] ?? 0);
+
+    if ($idProducto <= 0 || $cantidad <= 0) {
+        $_SESSION['venta_error'] = 'Uno de los productos enviados no es válido.';
+        header('Location: ' . BASE_URL . '/modules/ventas/form.php');
+        exit;
+    }
+
+    if (!isset($productosAgrupados[$idProducto])) {
+        $productosAgrupados[$idProducto] = 0;
+    }
+
+    $productosAgrupados[$idProducto] += $cantidad;
 }
 
 try {
@@ -50,14 +72,7 @@ try {
     $detallesFinales = [];
     $totalVenta = 0;
 
-    foreach ($productosPost as $item) {
-        $idProducto = (int) ($item['id_producto'] ?? 0);
-        $cantidadSolicitada = (int) ($item['cantidad'] ?? 0);
-
-        if ($idProducto <= 0 || $cantidadSolicitada <= 0) {
-            throw new Exception('Uno de los productos enviados no es válido.');
-        }
-
+    foreach ($productosAgrupados as $idProducto => $cantidadSolicitada) {
         $stmtProducto = $pdo->prepare("
             SELECT id_producto, nombre, precio_venta, activo
             FROM producto
@@ -117,9 +132,7 @@ try {
 
             $detallesFinales[] = [
                 'id_producto' => $idProducto,
-                'nombre_producto' => $producto['nombre'],
                 'id_lote' => (int) $lote['id_lote'],
-                'codigo_lote' => $lote['codigo_lote'],
                 'cantidad' => $cantidadTomada,
                 'precio_unitario' => $precioUnitario,
                 'subtotal' => $subtotal,
@@ -143,6 +156,7 @@ try {
         'metodo_pago' => $metodoPago,
         'total_venta' => $totalVenta,
     ]);
+
     $idVenta = (int) $pdo->lastInsertId();
 
     foreach ($detallesFinales as $detalle) {
