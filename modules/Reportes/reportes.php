@@ -15,7 +15,7 @@ GROUP BY p.id_producto
 HAVING stock_total <= p.stock_minimo
 ")->fetchAll();
 
-// POR VENCER (AGREGAMOS LOTE 🔥)
+// POR VENCER 
 $porVencer = $pdo->query("
 SELECT nombre_producto, codigo_lote, fecha_vencimiento, cantidad_actual 
 FROM productos_por_vencer

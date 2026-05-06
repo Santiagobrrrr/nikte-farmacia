@@ -1,222 +1,242 @@
+<?php
+require_once __DIR__ . '/../../config/config.php';
+?>
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestión de Clientes - Farmacia</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-            font-family: 'Segoe UI', sans-serif; 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh; padding: 20px;
-        }
-        .container { max-width: 1200px; margin: 0 auto; }
-        header { 
-            background: white; padding: 25px; border-radius: 15px; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;
-        }
-        h1 { color: #333; }
-        .btn { 
-            padding: 12px 24px; border: none; border-radius: 8px; 
-            text-decoration: none; cursor: pointer; font-weight: bold;
-            transition: all 0.3s; display: inline-flex; align-items: center; gap: 8px;
-        }
-        .btn-primary { background: #28a745; color: white; }
-        .btn-secondary { background: #6c757d; color: white; }
-        .btn-warning { background: #ffc107; color: #333; }
-        .btn-danger { background: #dc3545; color: white; }
-        .btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
-        .btn-sm { padding: 6px 12px; font-size: 0.9em; }
-        
-        .card { 
-            background: white; margin-bottom: 30px; border-radius: 15px; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1); overflow: hidden;
-        }
-        .card h3 { 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white; padding: 20px; margin: 0;
-        }
-        .form-grid { 
-            display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 30px;
-        }
-        .form-group { display: flex; flex-direction: column; gap: 8px; }
-        .form-group.full-width { grid-column: 1 / -1; }
-        label { font-weight: bold; color: #555; }
-        input, textarea { 
-            padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px; 
-            font-size: 16px; transition: border-color 0.3s;
-        }
-        input:focus, textarea:focus { outline: none; border-color: #667eea; }
-        textarea { resize: vertical; min-height: 80px; }
-        .form-actions { padding: 0 30px 30px; text-align: right; }
-        
-        .table-container { overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; }
-        th { background: #f8f9fa; font-weight: bold; color: #333; }
-        tr:hover { background: #f8f9fa; }
-        .precio { font-weight: bold; color: #28a745; }
-        
-        .alert { 
-            background: #d4edda; color: #155724; padding: 15px 20px; 
-            border-radius: 8px; margin-bottom: 20px; border: 1px solid #c3e6cb;
-        }
-        .reportes-grid {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px; margin-bottom: 30px;
-        }
-        .reporte-card {
-            background: white; padding: 30px; border-radius: 15px;
-            text-decoration: none; text-align: center; color: #333;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1); transition: all 0.3s;
-        }
-        .reporte-card:hover { transform: translateY(-5px); box-shadow: 0 15px 30px rgba(0,0,0,0.2); }
-        .reporte-card .icono { font-size: 3em; color: #667eea; margin-bottom: 15px; }
-        .warning { background: #fff3cd !important; }
-        
-        @media (max-width: 768px) {
-            .form-grid { grid-template-columns: 1fr; }
-            header { flex-direction: column; gap: 15px; text-align: center; }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clientes</title>
+
+<!-- ✅ BOOTSTRAP -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+/* 🌿 Fondo */
+body {
+    background: linear-gradient(135deg, #e6f4ea, #ffffff);
+}
+
+/* 🟢 Header */
+.page-header {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0px 5px 15px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+h1 {
+    color: #198754;
+}
+
+/* 📦 Cards */
+.card-custom {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0px 5px 15px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.card-header-custom {
+    background: #198754;
+    color: white;
+    padding: 15px;
+    border-radius: 12px 12px 0 0;
+    font-weight: bold;
+}
+
+/* 🧾 Form */
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    padding: 20px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group.full {
+    grid-column: 1 / -1;
+}
+
+input, textarea {
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+}
+
+input:focus, textarea:focus {
+    border-color: #198754;
+    outline: none;
+}
+
+/* 🟢 Botones */
+.btn-verde {
+    background: #198754;
+    color: white;
+}
+.btn-verde:hover {
+    background: #146c43;
+}
+
+.btn-sec {
+    background: #6c757d;
+    color: white;
+}
+
+/* 📊 Tabla */
+.table thead {
+    background: #198754;
+    color: white;
+}
+
+.table tbody tr:hover {
+    background: #e6f4ea;
+}
+
+/* 🎬 Animación */
+.fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+}
+@keyframes fadeIn {
+    from {opacity:0; transform: translateY(10px);}
+    to {opacity:1; transform: translateY(0);}
+}
+</style>
 </head>
+
 <body>
-    <div class="container">
-        <header>
-            <h1><i class="fas fa-users"></i> Gestión de Clientes</h1>
-            <a href="reportes.php" class="btn btn-secondary">
-                <i class="fas fa-chart-bar"></i> Ver Reportes
-            </a>
-        </header>
 
-        <!-- Formulario -->
-        <div class="card">
-            <h3><i class="fas fa-user-plus"></i> Nuevo / Editar Cliente</h3>
-            <form id="formCliente">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label><i class="fas fa-user"></i> Nombre Completo:</label>
-                        <input type="text" id="nombre" placeholder="Juan Pérez" required>
-                    </div>
-                    <div class="form-group">
-                        <label><i class="fas fa-phone"></i> Teléfono:</label>
-                        <input type="tel" id="telefono" placeholder="555-123-4567">
-                    </div>
-                    <div class="form-group full-width">
-                        <label><i class="fas fa-map-marker-alt"></i> Dirección:</label>
-                        <textarea id="direccion" placeholder="Calle Falsa 123, Colonia Centro"></textarea>
-                    </div>
-                </div>
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save"></i> Guardar Cliente
-                    </button>
-                    <button type="reset" class="btn btn-secondary">
-                        <i class="fas fa-redo"></i> Limpiar
-                    </button>
-                </div>
-            </form>
-        </div>
+<div class="container-fluid">
+<div class="row">
 
-        <!-- Lista de Clientes (Datos de ejemplo) -->
-        <div class="card">
-            <h3><i class="fas fa-list"></i> Lista de Clientes <span class="badge">25 clientes</span></h3>
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Nombre</th>
-                            <th>Teléfono</th>
-                            <th>Dirección</th>
-                            <th>Compras</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="listaClientes">
-                        <?php
-                        // Datos de ejemplo
-                        $clientes = [
-                            ['1', 'María González', '555-1234', 'Av. Principal 456', '12'],
-                            ['2', 'Juan Pérez', '555-5678', 'Calle Secundaria 789', '8'],
-                            ['3', 'Ana López', '555-9012', 'Col. Centro 321', '5'],
-                            ['4', 'Carlos Ramírez', '555-3456', 'Zona Industrial', '3'],
-                            ['5', 'Laura Martínez', '555-7890', 'Residencial Norte', '15']
-                        ];
-                        
-                        foreach ($clientes as $cliente):
-                        ?>
-                        <tr>
-                            <td><?php echo $cliente[0]; ?></td>
-                            <td><?php echo $cliente[1]; ?></td>
-                            <td><?php echo $cliente[2]; ?></td>
-                            <td><?php echo $cliente[3]; ?></td>
-                            <td><span class="badge"><?php echo $cliente[4]; ?></span></td>
-                            <td>
-                                <button class="btn btn-sm btn-warning" onclick="editarCliente(<?php echo $cliente[0]; ?>)">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                <button class="btn btn-sm btn-danger" onclick="eliminarCliente(<?php echo $cliente[0]; ?>)">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+<!-- ✅ SIDEBAR -->
+<?php require_once __DIR__ . '/../../includes/sidebar.php'; ?>
+
+<!-- ✅ CONTENIDO -->
+<div class="col-md-9 fade-in">
+
+    <!-- HEADER -->
+    <div class="page-header">
+        <h1>Gestión de Clientes</h1>
+    </div>
+
+    <!-- FORMULARIO -->
+    <div class="card-custom">
+        <div class="card-header-custom">Nuevo / Editar Cliente</div>
+
+        <form id="formCliente">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Nombre</label>
+                    <input type="text" id="nombre" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Teléfono</label>
+                    <input type="text" id="telefono">
+                </div>
+
+                <div class="form-group full">
+                    <label>Dirección</label>
+                    <textarea id="direccion"></textarea>
+                </div>
             </div>
+
+            <div class="p-3 text-end">
+                <button type="submit" class="btn btn-verde">Guardar</button>
+                <button type="reset" class="btn btn-sec">Limpiar</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- TABLA -->
+    <div class="card-custom">
+        <div class="card-header-custom">Lista de Clientes</div>
+
+        <div class="table-responsive p-3">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nombre</th>
+                        <th>Teléfono</th>
+                        <th>Dirección</th>
+                        <th>Compras</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="listaClientes">
+
+                    <?php
+                    $clientes = [
+                        ['1', 'María González', '555-1234', 'Av. Principal 456', '12'],
+                        ['2', 'Juan Pérez', '555-5678', 'Calle Secundaria 789', '8'],
+                    ];
+
+                    foreach ($clientes as $c):
+                    ?>
+
+                    <tr>
+                        <td><?= $c[0] ?></td>
+                        <td><?= $c[1] ?></td>
+                        <td><?= $c[2] ?></td>
+                        <td><?= $c[3] ?></td>
+                        <td><?= $c[4] ?></td>
+                        <td>
+                            <button class="btn btn-warning btn-sm">✏️</button>
+                            <button class="btn btn-danger btn-sm">🗑️</button>
+                        </td>
+                    </tr>
+
+                    <?php endforeach; ?>
+
+                </tbody>
+            </table>
         </div>
     </div>
 
-    <script>
-        // Simular guardar cliente
-        document.getElementById('formCliente').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const nombre = document.getElementById('nombre').value;
-            if (!nombre.trim()) {
-                alert('¡El nombre es obligatorio!');
-                return;
-            }
-            
-            // Simular éxito
-            alert(' Cliente guardado correctamente');
-            this.reset();
-            
-            // Aquí agregarías el cliente a la tabla
-            agregarClienteATabla(nombre);
-        });
+</div>
+</div>
+</div>
 
-        function agregarClienteATabla(nombre) {
-            const tbody = document.getElementById('listaClientes');
-            const nuevaFila = `
-                <tr>
-                    <td>26</td>
-                    <td>${nombre}</td>
-                    <td>-</td>
-                    <td>-</td>
-                    <td><span class="badge">0</span></td>
-                    <td>
-                        <button class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></button>
-                    </td>
-                </tr>
-            `;
-            tbody.insertAdjacentHTML('afterbegin', nuevaFila);
-        }
+<!-- ✅ JS BOOTSTRAP -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-        function editarCliente(id) {
-            alert(`Editando cliente ID: ${id}`);
-            // Aquí cargarías los datos en el formulario
-        }
+<script>
+document.getElementById('formCliente').addEventListener('submit', function(e){
+    e.preventDefault();
 
-        function eliminarCliente(id) {
-            if (confirm(`¿Eliminar cliente ID ${id}?`)) {
-                alert(` Cliente ${id} eliminado`);
-            }
-        }
-    </script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    const nombre = document.getElementById('nombre').value;
+    if(!nombre){
+        alert('Nombre requerido');
+        return;
+    }
+
+    const tabla = document.getElementById('listaClientes');
+
+    tabla.insertAdjacentHTML('afterbegin', `
+        <tr>
+            <td>Nuevo</td>
+            <td>${nombre}</td>
+            <td>-</td>
+            <td>-</td>
+            <td>0</td>
+            <td>
+                <button class="btn btn-warning btn-sm">✏️</button>
+                <button class="btn btn-danger btn-sm">🗑️</button>
+            </td>
+        </tr>
+    `);
+
+    this.reset();
+});
+</script>
+
 </body>
 </html>
