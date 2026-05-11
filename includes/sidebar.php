@@ -1,4 +1,7 @@
 <?php
+require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/session.php';
+
 $currentPath = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
 $isActive = function (string $segment) use ($currentPath): bool {
@@ -8,9 +11,25 @@ $isActive = function (string $segment) use ($currentPath): bool {
 $userName = function_exists('currentUserName') ? currentUserName() : 'Usuario';
 $roleName = function_exists('currentRole') ? currentRole() : '';
 
-$clientesReady = file_exists(__DIR__ . '/../modules/clientes/index.php');
-$reportesReady = file_exists(__DIR__ . '/../modules/reportes/index.php');
-$usuariosReady = file_exists(__DIR__ . '/../modules/usuarios/index.php');
+$clientesIndex = __DIR__ . '/../modules/clientes/index.php';
+$clientesAlt = __DIR__ . '/../modules/clientes/clientes.php';
+
+$reportesIndex = __DIR__ . '/../modules/reportes/index.php';
+$reportesAlt = __DIR__ . '/../modules/Reportes/reportes.php';
+
+$usuariosIndex = __DIR__ . '/../modules/usuarios/index.php';
+
+$clientesReady = file_exists($clientesIndex) || file_exists($clientesAlt);
+$reportesReady = file_exists($reportesIndex) || file_exists($reportesAlt);
+$usuariosReady = file_exists($usuariosIndex);
+
+$clientesUrl = file_exists($clientesIndex)
+    ? BASE_URL . '/modules/clientes/index.php'
+    : (file_exists($clientesAlt) ? BASE_URL . '/modules/clientes/clientes.php' : '#');
+
+$reportesUrl = file_exists($reportesIndex)
+    ? BASE_URL . '/modules/reportes/index.php'
+    : (file_exists($reportesAlt) ? BASE_URL . '/modules/Reportes/reportes.php' : '#');
 
 $menuItems = [
     [
@@ -56,7 +75,7 @@ $menuItems = [
     [
         'label' => 'Clientes',
         'icon' => 'bi-people',
-        'url' => $clientesReady ? BASE_URL . '/modules/clientes/index.php' : '#',
+        'url' => $clientesUrl,
         'active' => $isActive('/modules/clientes/'),
         'show' => true,
         'disabled' => !$clientesReady,
@@ -64,15 +83,15 @@ $menuItems = [
     [
         'label' => 'Reportes',
         'icon' => 'bi-bar-chart',
-        'url' => $reportesReady ? BASE_URL . '/modules/reportes/index.php' : '#',
-        'active' => $isActive('/modules/reportes/'),
+        'url' => $reportesUrl,
+        'active' => $isActive('/modules/reportes/') || $isActive('/modules/Reportes/'),
         'show' => true,
         'disabled' => !$reportesReady,
     ],
     [
         'label' => 'Usuarios',
         'icon' => 'bi-person-gear',
-        'url' => $usuariosReady ? BASE_URL . '/modules/usuarios/index.php' : '#',
+        'url' => BASE_URL . '/modules/usuarios/index.php',
         'active' => $isActive('/modules/usuarios/'),
         'show' => $roleName === 'administradora',
         'disabled' => !$usuariosReady,
@@ -87,6 +106,7 @@ function renderSidebarMenu(array $menuItems): void
         }
 
         $classes = 'sidebar-link';
+
         if ($item['active']) {
             $classes .= ' active';
         }
@@ -95,6 +115,7 @@ function renderSidebarMenu(array $menuItems): void
             $classes .= ' disabled';
         }
         ?>
+
         <a href="<?= htmlspecialchars($item['url']); ?>"
            class="<?= $classes; ?>"
            <?= $item['disabled'] ? 'tabindex="-1" aria-disabled="true"' : ''; ?>>
@@ -105,6 +126,7 @@ function renderSidebarMenu(array $menuItems): void
                 <small class="ms-auto text-muted">Próx.</small>
             <?php endif; ?>
         </a>
+
         <?php
     }
 }
@@ -234,6 +256,7 @@ function renderSidebarMenu(array $menuItems): void
             <div class="sidebar-brand-icon">
                 <i class="bi bi-capsule"></i>
             </div>
+
             <div>
                 <h5 class="mb-0"><?= htmlspecialchars(APP_NAME); ?></h5>
                 <small class="text-muted">Menú principal</small>
@@ -270,6 +293,7 @@ function renderSidebarMenu(array $menuItems): void
 
                 <div>
                     <p class="sidebar-brand-title"><?= htmlspecialchars(APP_NAME); ?></p>
+                    <p class="sidebar-brand-subtitle">Panel administrativo</p>
                 </div>
             </div>
 
