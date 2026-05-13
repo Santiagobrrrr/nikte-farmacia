@@ -89,13 +89,13 @@ $menuItems = [
         'disabled' => !$reportesReady,
     ],
     [
-        'label' => 'Usuarios',
-        'icon' => 'bi-person-gear',
-        'url' => BASE_URL . '/modules/usuarios/index.php',
-        'active' => $isActive('/modules/usuarios/'),
-        'show' => $roleName === 'administradora',
-        'disabled' => !$usuariosReady,
-    ],
+    'label' => 'Usuarios',
+    'icon' => 'bi-person-gear',
+    'url' => BASE_URL . '/modules/usuarios/index.php',
+    'active' => $isActive('/modules/usuarios/'),
+    'show' => false,
+    'disabled' => true,
+],
 ];
 
 function renderSidebarMenu(array $menuItems): void
