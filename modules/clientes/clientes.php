@@ -1,414 +1,286 @@
 <?php
 require_once __DIR__ . '/../../config/config.php';
+require_once __DIR__ . '/../../includes/auth_check.php';
 require_once __DIR__ . '/../../config/database.php';
 
-$pdo = getPDO();
+$success = $_SESSION['cliente_success'] ?? '';
+$error = $_SESSION['cliente_error'] ?? '';
+unset($_SESSION['cliente_success'], $_SESSION['cliente_error']);
 
-/* =========================
-   GUARDAR O ACTUALIZAR
-========================= */
+try {
+    $pdo = getPDO();
 
-if (isset($_POST['guardar'])) {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar'])) {
+        $idCliente = isset($_POST['id_cliente']) ? (int) $_POST['id_cliente'] : 0;
+        $nombre = trim($_POST['nombre'] ?? '');
+        $telefono = trim($_POST['telefono'] ?? '');
+        $direccion = trim($_POST['direccion'] ?? '');
 
-    $id = $_POST['id_cliente'] ?? '';
+        if ($nombre === '') {
+            $_SESSION['cliente_error'] = 'El nombre del cliente es obligatorio.';
+            header('Location: ' . BASE_URL . '/modules/clientes/clientes.php');
+            exit;
+        }
 
-    $nombre = trim($_POST['nombre']);
-    $telefono = trim($_POST['telefono']);
-    $direccion = trim($_POST['direccion']);
+        if ($idCliente > 0) {
+            $stmt = $pdo->prepare("
+                UPDATE cliente
+                SET nombre = :nombre,
+                    telefono = :telefono,
+                    direccion = :direccion
+                WHERE id_cliente = :id_cliente
+            ");
 
-    // EDITAR CLIENTE
-    if (!empty($id)) {
+            $stmt->execute([
+                'nombre' => $nombre,
+                'telefono' => $telefono !== '' ? $telefono : null,
+                'direccion' => $direccion !== '' ? $direccion : null,
+                'id_cliente' => $idCliente,
+            ]);
 
-        $sql = "
-        UPDATE Cliente
-        SET nombre = ?, telefono = ?, direccion = ?
-        WHERE id_cliente = ?
-        ";
+            $_SESSION['cliente_success'] = 'Cliente actualizado correctamente.';
+        } else {
+            $stmt = $pdo->prepare("
+                INSERT INTO cliente (nombre, telefono, direccion)
+                VALUES (:nombre, :telefono, :direccion)
+            ");
 
-        $stmt = $pdo->prepare($sql);
+            $stmt->execute([
+                'nombre' => $nombre,
+                'telefono' => $telefono !== '' ? $telefono : null,
+                'direccion' => $direccion !== '' ? $direccion : null,
+            ]);
 
-        $stmt->execute([
-            $nombre,
-            $telefono,
-            $direccion,
-            $id
-        ]);
+            $_SESSION['cliente_success'] = 'Cliente registrado correctamente.';
+        }
 
-    } else {
-
-        // NUEVO CLIENTE
-        $sql = "
-        INSERT INTO Cliente(nombre, telefono, direccion)
-        VALUES (?, ?, ?)
-        ";
-
-        $stmt = $pdo->prepare($sql);
-
-        $stmt->execute([
-            $nombre,
-            $telefono,
-            $direccion
-        ]);
+        header('Location: ' . BASE_URL . '/modules/clientes/clientes.php');
+        exit;
     }
 
-    header("Location: clientes.php");
-    exit;
+    if (isset($_GET['eliminar'])) {
+        $idCliente = (int) $_GET['eliminar'];
+
+        if ($idCliente > 0) {
+            $stmt = $pdo->prepare("
+                SELECT COUNT(*) 
+                FROM venta 
+                WHERE id_cliente = :id_cliente
+            ");
+            $stmt->execute(['id_cliente' => $idCliente]);
+            $ventasCliente = (int) $stmt->fetchColumn();
+
+            if ($ventasCliente > 0) {
+                $_SESSION['cliente_error'] = 'No se puede eliminar un cliente que ya tiene ventas registradas.';
+            } else {
+                $stmt = $pdo->prepare("
+                    DELETE FROM cliente 
+                    WHERE id_cliente = :id_cliente
+                ");
+                $stmt->execute(['id_cliente' => $idCliente]);
+
+                $_SESSION['cliente_success'] = 'Cliente eliminado correctamente.';
+            }
+        }
+
+        header('Location: ' . BASE_URL . '/modules/clientes/clientes.php');
+        exit;
+    }
+
+    $stmt = $pdo->query("
+        SELECT
+            c.id_cliente,
+            c.nombre,
+            c.telefono,
+            c.direccion,
+            COUNT(v.id_venta) AS ventas_realizadas
+        FROM cliente c
+        LEFT JOIN venta v ON v.id_cliente = c.id_cliente
+        GROUP BY c.id_cliente, c.nombre, c.telefono, c.direccion
+        ORDER BY c.id_cliente DESC
+    ");
+
+    $clientes = $stmt->fetchAll();
+
+} catch (Throwable $e) {
+    $clientes = [];
+    $error = 'No se pudieron cargar los clientes.';
 }
 
-/* =========================
-   ELIMINAR CLIENTE
-========================= */
-
-if (isset($_GET['eliminar'])) {
-
-    $id = $_GET['eliminar'];
-
-    $sql = "DELETE FROM Cliente WHERE id_cliente = ?";
-
-    $stmt = $pdo->prepare($sql);
-
-    $stmt->execute([$id]);
-
-    header("Location: clientes.php");
-    exit;
-}
-
-/* =========================
-   OBTENER CLIENTES
-========================= */
-
-$sqlClientes = "
-SELECT 
-    c.*,
-    COUNT(v.id_venta) AS compras
-FROM Cliente c
-LEFT JOIN Venta v ON c.id_cliente = v.id_cliente
-GROUP BY c.id_cliente
-ORDER BY c.id_cliente DESC
-";
-
-$clientes = $pdo->query($sqlClientes)->fetchAll();
-
+require_once __DIR__ . '/../../includes/header.php';
 ?>
 
-<!DOCTYPE html>
-<html lang="es">
+<div class="container-fluid py-4">
+    <div class="row">
+        <?php require_once __DIR__ . '/../../includes/sidebar.php'; ?>
 
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>Clientes</title>
-
-<!-- BOOTSTRAP -->
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-
-<style>
-
-body{
-    background: linear-gradient(135deg,#e6f4ea,#ffffff);
-}
-
-/* HEADER */
-.page-header{
-    background:white;
-    padding:20px;
-    border-radius:12px;
-    margin-bottom:20px;
-    box-shadow:0px 5px 15px rgba(0,0,0,0.1);
-}
-
-h1{
-    color:#198754;
-}
-
-/* CARD */
-.card-custom{
-    background:white;
-    border-radius:12px;
-    margin-bottom:20px;
-    box-shadow:0px 5px 15px rgba(0,0,0,0.1);
-}
-
-.card-header-custom{
-    background:#198754;
-    color:white;
-    padding:15px;
-    font-weight:bold;
-    border-radius:12px 12px 0 0;
-}
-
-/* FORM */
-.form-grid{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:20px;
-    padding:20px;
-}
-
-.form-group{
-    display:flex;
-    flex-direction:column;
-}
-
-.form-group.full{
-    grid-column:1/-1;
-}
-
-input,
-textarea{
-    padding:10px;
-    border-radius:8px;
-    border:1px solid #ccc;
-}
-
-input:focus,
-textarea:focus{
-    outline:none;
-    border-color:#198754;
-}
-
-/* BOTONES */
-.btn-verde{
-    background:#198754;
-    color:white;
-}
-
-.btn-verde:hover{
-    background:#146c43;
-    color:white;
-}
-
-/* TABLA */
-.table thead{
-    background:#198754;
-    color:white;
-}
-
-.table tbody tr:hover{
-    background:#e6f4ea;
-}
-
-/* ANIMACIÓN */
-.fade-in{
-    animation:fadeIn .5s ease;
-}
-
-@keyframes fadeIn{
-    from{
-        opacity:0;
-        transform:translateY(10px);
-    }
-    to{
-        opacity:1;
-        transform:translateY(0);
-    }
-}
-
-</style>
-
-</head>
-
-<body>
-
-<div class="container-fluid">
-<div class="row">
-
-<!-- SIDEBAR -->
-<?php require_once __DIR__ . '/../../includes/sidebar.php'; ?>
-
-<!-- CONTENIDO -->
-<div class="col-md-9 fade-in">
-
-    <!-- HEADER -->
-    <div class="page-header">
-        <h1>Gestión de Clientes</h1>
-    </div>
-
-    <!-- FORMULARIO -->
-    <div class="card-custom">
-
-        <div class="card-header-custom">
-            Nuevo / Editar Cliente
-        </div>
-
-        <form method="POST">
-
-            <!-- ID OCULTO -->
-            <input 
-                type="hidden" 
-                name="id_cliente" 
-                id="id_cliente">
-
-            <div class="form-grid">
-
-                <div class="form-group">
-                    <label>Nombre</label>
-
-                    <input 
-                        type="text"
-                        name="nombre"
-                        id="nombre"
-                        required>
+        <div class="col-12 col-md-9 col-lg-10">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h1 class="mb-1">Clientes</h1>
+                    <p class="text-muted mb-0">
+                        Gestión de clientes registrados en el sistema.
+                    </p>
                 </div>
-
-                <div class="form-group">
-                    <label>Teléfono</label>
-
-                    <input 
-                        type="text"
-                        name="telefono"
-                        id="telefono">
-                </div>
-
-                <div class="form-group full">
-                    <label>Dirección</label>
-
-                    <textarea
-                        name="direccion"
-                        id="direccion"></textarea>
-                </div>
-
             </div>
 
-            <div class="p-3 text-end">
+            <?php if (!empty($success)): ?>
+                <div class="alert alert-success">
+                    <?= htmlspecialchars($success); ?>
+                </div>
+            <?php endif; ?>
 
-                <button
-                    type="submit"
-                    name="guardar"
-                    id="btnGuardar"
-                    class="btn btn-verde">
+            <?php if (!empty($error)): ?>
+                <div class="alert alert-danger">
+                    <?= htmlspecialchars($error); ?>
+                </div>
+            <?php endif; ?>
 
-                    Guardar Cliente
+            <div class="card shadow-sm border-0 mb-3">
+                <div class="card-body">
+                    <h4 class="mb-3" id="formTitle">Nuevo cliente</h4>
 
-                </button>
+                    <form method="POST" action="<?= BASE_URL; ?>/modules/clientes/clientes.php">
+                        <input type="hidden" name="id_cliente" id="id_cliente">
 
-            </div>
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Nombre *</label>
+                                <input type="text" name="nombre" id="nombre" class="form-control" required>
+                            </div>
 
-        </form>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Teléfono</label>
+                                <input type="text" name="telefono" id="telefono" class="form-control">
+                            </div>
 
-    </div>
+                            <div class="col-12">
+                                <label class="form-label">Dirección</label>
+                                <textarea name="direccion" id="direccion" class="form-control" rows="2"></textarea>
+                            </div>
+                        </div>
 
-    <!-- TABLA -->
-    <div class="card-custom">
-
-        <div class="card-header-custom">
-            Lista de Clientes
-        </div>
-
-        <div class="table-responsive p-3">
-
-            <table class="table table-hover">
-
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Nombre</th>
-                        <th>Teléfono</th>
-                        <th>Dirección</th>
-                        <th>Compras</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-
-                <tbody>
-
-                <?php foreach($clientes as $cliente): ?>
-
-                    <tr>
-
-                        <td>
-                            <?= $cliente['id_cliente'] ?>
-                        </td>
-
-                        <td>
-                            <?= $cliente['nombre'] ?>
-                        </td>
-
-                        <td>
-                            <?= $cliente['telefono'] ?>
-                        </td>
-
-                        <td>
-                            <?= $cliente['direccion'] ?>
-                        </td>
-
-                        <td>
-                            <?= $cliente['compras'] ?>
-                        </td>
-
-                        <td>
-
-                            <!-- EDITAR -->
-                            <button
-                                type="button"
-                                class="btn btn-warning btn-sm"
-
-                                onclick="editarCliente(
-                                    '<?= $cliente['id_cliente'] ?>',
-                                    '<?= htmlspecialchars($cliente['nombre']) ?>',
-                                    '<?= htmlspecialchars($cliente['telefono']) ?>',
-                                    '<?= htmlspecialchars($cliente['direccion']) ?>'
-                                )">
-
-                                ✏️
-
+                        <div class="d-flex gap-2 mt-3">
+                            <button type="submit" name="guardar" id="btnGuardar" class="btn btn-success">
+                                Guardar cliente
                             </button>
 
-                            <!-- ELIMINAR -->
-                            <a
-                                href="?eliminar=<?= $cliente['id_cliente'] ?>"
-                                class="btn btn-danger btn-sm"
-                                onclick="return confirm('¿Eliminar cliente?')">
+                            <button type="button" id="btnCancelarEdicion" class="btn btn-outline-secondary d-none">
+                                Cancelar edición
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
 
-                                🗑️
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h4 class="mb-3">Listado de clientes</h4>
 
-                            </a>
+                    <?php if (empty($clientes)): ?>
+                        <div class="alert alert-warning mb-0">
+                            No hay clientes registrados.
+                        </div>
+                    <?php else: ?>
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Nombre</th>
+                                        <th>Teléfono</th>
+                                        <th>Dirección</th>
+                                        <th>Ventas</th>
+                                        <th width="190">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($clientes as $cliente): ?>
+                                        <tr>
+                                            <td><?= (int) $cliente['id_cliente']; ?></td>
 
-                        </td>
+                                            <td><?= htmlspecialchars($cliente['nombre']); ?></td>
 
-                    </tr>
+                                            <td>
+                                                <?= htmlspecialchars($cliente['telefono'] ?? ''); ?>
+                                            </td>
 
-                <?php endforeach; ?>
+                                            <td>
+                                                <?= htmlspecialchars($cliente['direccion'] ?? ''); ?>
+                                            </td>
 
-                </tbody>
+                                            <td>
+                                                <span class="badge text-bg-light border">
+                                                    <?= (int) $cliente['ventas_realizadas']; ?>
+                                                </span>
+                                            </td>
 
-            </table>
+                                            <td>
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-sm btn-outline-primary btn-editar-cliente"
+                                                    data-id="<?= (int) $cliente['id_cliente']; ?>"
+                                                    data-nombre="<?= htmlspecialchars($cliente['nombre'], ENT_QUOTES); ?>"
+                                                    data-telefono="<?= htmlspecialchars($cliente['telefono'] ?? '', ENT_QUOTES); ?>"
+                                                    data-direccion="<?= htmlspecialchars($cliente['direccion'] ?? '', ENT_QUOTES); ?>">
+                                                    Editar
+                                                </button>
+
+                                                <?php if ((int) $cliente['ventas_realizadas'] === 0): ?>
+                                                    <a
+                                                        href="<?= BASE_URL; ?>/modules/clientes/clientes.php?eliminar=<?= (int) $cliente['id_cliente']; ?>"
+                                                        class="btn btn-sm btn-outline-danger"
+                                                        onclick="return confirm('¿Deseas eliminar este cliente?');">
+                                                        Eliminar
+                                                    </a>
+                                                <?php else: ?>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" disabled>
+                                                        Con ventas
+                                                    </button>
+                                                <?php endif; ?>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
 
         </div>
-
     </div>
-
-</div>
-</div>
 </div>
 
-<!-- JS -->
 <script>
+document.querySelectorAll('.btn-editar-cliente').forEach(button => {
+    button.addEventListener('click', function () {
+        document.getElementById('id_cliente').value = this.dataset.id;
+        document.getElementById('nombre').value = this.dataset.nombre;
+        document.getElementById('telefono').value = this.dataset.telefono;
+        document.getElementById('direccion').value = this.dataset.direccion;
 
-function editarCliente(id, nombre, telefono, direccion){
+        document.getElementById('formTitle').textContent = 'Editar cliente';
+        document.getElementById('btnGuardar').textContent = 'Actualizar cliente';
+        document.getElementById('btnCancelarEdicion').classList.remove('d-none');
 
-    // ID
-    document.getElementById('id_cliente').value = id;
-
-    // INPUTS
-    document.getElementById('nombre').value = nombre;
-    document.getElementById('telefono').value = telefono;
-    document.getElementById('direccion').value = direccion;
-
-    // CAMBIAR TEXTO BOTÓN
-    document.getElementById('btnGuardar').innerText = "Actualizar Cliente";
-
-    // SCROLL ARRIBA
-    window.scrollTo({
-        top:0,
-        behavior:'smooth'
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
     });
-}
+});
 
+document.getElementById('btnCancelarEdicion').addEventListener('click', function () {
+    document.getElementById('id_cliente').value = '';
+    document.getElementById('nombre').value = '';
+    document.getElementById('telefono').value = '';
+    document.getElementById('direccion').value = '';
+
+    document.getElementById('formTitle').textContent = 'Nuevo cliente';
+    document.getElementById('btnGuardar').textContent = 'Guardar cliente';
+    this.classList.add('d-none');
+});
 </script>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
-</body>
-</html>
+<?php require_once __DIR__ . '/../../includes/footer.php'; ?>

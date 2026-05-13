@@ -1,537 +1,457 @@
 <?php
 require_once __DIR__ . '/../../config/config.php';
+require_once __DIR__ . '/../../includes/auth_check.php';
 require_once __DIR__ . '/../../config/database.php';
 
-$pdo = getPDO();
-
 $fechaActual = date('d/m/Y');
+$error = '';
 
-/* =========================
-   STOCK BAJO
-========================= */
-$stockBajo = $pdo->query("
-SELECT 
-    p.nombre,
-    SUM(l.cantidad_actual) AS stock_total,
-    p.stock_minimo
-FROM Producto p
-INNER JOIN Lote l 
-    ON p.id_producto = l.id_producto
-GROUP BY p.id_producto
-HAVING stock_total <= p.stock_minimo
-")->fetchAll();
+$stockBajo = [];
+$porVencer = [];
+$compras = [];
+$ventas = [];
 
-/* =========================
-   PRODUCTOS POR VENCER
-========================= */
-$porVencer = $pdo->query("
-SELECT 
-    p.nombre AS nombre_producto,
-    l.codigo_lote,
-    l.fecha_ingreso,
-    l.fecha_vencimiento,
-    l.cantidad_actual
-FROM Lote l
-INNER JOIN Producto p 
-    ON p.id_producto = l.id_producto
-WHERE l.fecha_vencimiento <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
-AND l.cantidad_actual > 0
-")->fetchAll();
+$totalCompras = 0;
+$totalVentas = 0;
 
-/* =========================
-   COMPRAS
-========================= */
-$compras = $pdo->query("
-SELECT 
-    c.id_compra,
-    c.fecha_compra,
-    p.nombre AS proveedor,
-    c.total_compra
-FROM Compra c
-INNER JOIN Proveedor p 
-    ON c.id_proveedor = p.id_proveedor
-")->fetchAll();
+try {
+    $pdo = getPDO();
 
-/* =========================
-   VENTAS
-========================= */
-$ventas = $pdo->query("
-SELECT 
-    id_venta,
-    fecha_venta,
-    total_venta
-FROM Venta
-")->fetchAll();
+    $stockBajo = $pdo->query("
+        SELECT
+            p.id_producto,
+            p.nombre,
+            p.presentacion,
+            p.stock_minimo,
+            COALESCE(SUM(
+                CASE
+                    WHEN l.fecha_vencimiento >= CURDATE() THEN l.cantidad_actual
+                    ELSE 0
+                END
+            ), 0) AS stock_actual
+        FROM producto p
+        LEFT JOIN lote l ON l.id_producto = p.id_producto
+        WHERE p.activo = 1
+        GROUP BY p.id_producto, p.nombre, p.presentacion, p.stock_minimo
+        HAVING stock_actual <= p.stock_minimo
+        ORDER BY stock_actual ASC, p.nombre ASC
+    ")->fetchAll();
+
+    $porVencer = $pdo->query("
+        SELECT
+            p.nombre AS nombre_producto,
+            p.presentacion,
+            l.codigo_lote,
+            l.fecha_ingreso,
+            l.fecha_vencimiento,
+            l.cantidad_actual,
+            DATEDIFF(l.fecha_vencimiento, CURDATE()) AS dias_restantes
+        FROM lote l
+        INNER JOIN producto p ON p.id_producto = l.id_producto
+        WHERE l.fecha_vencimiento <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+          AND l.cantidad_actual > 0
+        ORDER BY l.fecha_vencimiento ASC
+    ")->fetchAll();
+
+    $compras = $pdo->query("
+        SELECT
+            c.id_compra,
+            c.fecha_compra,
+            pr.nombre AS proveedor,
+            u.nombre AS usuario,
+            c.total_compra
+        FROM compra c
+        LEFT JOIN proveedor pr ON pr.id_proveedor = c.id_proveedor
+        LEFT JOIN usuario u ON u.id_usuario = c.id_usuario
+        ORDER BY c.fecha_compra DESC, c.id_compra DESC
+    ")->fetchAll();
+
+    $ventas = $pdo->query("
+        SELECT
+            v.id_venta,
+            v.fecha_venta,
+            v.metodo_pago,
+            v.total_venta,
+            c.nombre AS cliente,
+            u.nombre AS usuario
+        FROM venta v
+        LEFT JOIN cliente c ON c.id_cliente = v.id_cliente
+        LEFT JOIN usuario u ON u.id_usuario = v.id_usuario
+        ORDER BY v.fecha_venta DESC, v.id_venta DESC
+    ")->fetchAll();
+
+    foreach ($compras as $compra) {
+        $totalCompras += (float) $compra['total_compra'];
+    }
+
+    foreach ($ventas as $venta) {
+        $totalVentas += (float) $venta['total_venta'];
+    }
+
+} catch (Throwable $e) {
+    $error = 'No se pudieron cargar los reportes.';
+}
+
+require_once __DIR__ . '/../../includes/header.php';
 ?>
 
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>Reportes</title>
-
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-
 <style>
-
-body{
-    background:#f4fff6;
-    animation: fadeIn 0.5s ease;
-}
-
-h2{
-    color:#198754;
-    font-weight:bold;
-}
-
-/* =========================
-   SIDEBAR + CONTENIDO
-========================= */
-
-.main-card{
-    background:white;
-    border-radius:20px;
-    box-shadow:0 4px 20px rgba(0,0,0,0.08);
-    padding:25px;
-    animation: slideUp 0.5s ease;
-}
-
-/* =========================
-   TABS
-========================= */
-
-.nav-tabs{
-    border:none;
-    gap:10px;
-}
-
-.nav-tabs .nav-link{
-    border:none;
-    color:#198754;
-    border-radius:12px;
-    transition:0.3s;
-    font-weight:600;
-}
-
-.nav-tabs .nav-link:hover{
-    background:#d1f3dd;
-}
-
-.nav-tabs .nav-link.active{
-    background:#198754;
-    color:white;
-}
-
-/* =========================
-   TABLAS
-========================= */
-
-.table{
-    background:white;
-    border-radius:15px;
-    overflow:hidden;
-}
-
-.table thead{
-    background:#198754;
-    color:white;
-}
-
-.table tbody tr{
-    transition:0.3s;
-}
-
-.table tbody tr:hover{
-    background:#f1fff5;
-    transform:scale(1.003);
-}
-
-.text-danger{
-    color:#dc3545 !important;
-}
-
-/* =========================
-   BOTÓN IMPRIMIR
-========================= */
-
-.btn-print{
-    background:#198754;
-    color:white;
-    border:none;
-    padding:10px 25px;
-    border-radius:10px;
-    transition:0.3s;
-    font-weight:600;
-}
-
-.btn-print:hover{
-    background:#157347;
-    transform:translateY(-2px);
-}
-
-/* =========================
-   ENCABEZADO IMPRESIÓN
-========================= */
-
-.encabezado{
-    display:none;
-    text-align:center;
-    margin-bottom:20px;
-}
-
-/* =========================
-   ANIMACIONES
-========================= */
-
-@keyframes fadeIn{
-    from{
-        opacity:0;
-    }
-    to{
-        opacity:1;
-    }
-}
-
-@keyframes slideUp{
-    from{
-        opacity:0;
-        transform:translateY(20px);
-    }
-    to{
-        opacity:1;
-        transform:translateY(0);
-    }
-}
-
-/* =========================
-   IMPRESIÓN
-========================= */
-
-@media print{
-
-    body *{
-        visibility:hidden;
+    .report-header-print {
+        display: none;
+        text-align: center;
+        margin-bottom: 1rem;
     }
 
-    .tab-pane.active,
-    .tab-pane.active *{
-        visibility:visible;
-    }
+    @media print {
+        body * {
+            visibility: hidden;
+        }
 
-    .tab-pane.active{
-        position:absolute;
-        top:0;
-        left:0;
-        width:100%;
-    }
+        .tab-pane.active,
+        .tab-pane.active * {
+            visibility: visible;
+        }
 
-    .encabezado{
-        display:block;
-    }
+        .tab-pane.active {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+        }
 
-    .btn-print,
-    .nav-tabs,
-    .sidebar{
-        display:none !important;
-    }
-}
+        .report-header-print {
+            display: block !important;
+        }
 
+        .no-print,
+        .no-print * {
+            display: none !important;
+        }
+
+        .row > .d-none.d-md-block,
+        .col-12.d-md-none {
+            display: none !important;
+        }
+
+        .report-content {
+            width: 100% !important;
+            max-width: 100% !important;
+            flex: 0 0 100% !important;
+        }
+
+        .card {
+            border: none !important;
+            box-shadow: none !important;
+        }
+    }
 </style>
-</head>
 
-<body>
+<div class="container-fluid py-4">
+    <div class="row">
+        <?php require_once __DIR__ . '/../../includes/sidebar.php'; ?>
 
-<div class="container-fluid mt-3">
-<div class="row">
+        <div class="col-12 col-md-9 col-lg-10 report-content">
+            <div class="d-flex justify-content-between align-items-center mb-3 no-print">
+                <div>
+                    <h1 class="mb-1">Reportes</h1>
+                    <p class="text-muted mb-0">
+                        Consultas generales del sistema para inventario, compras y ventas.
+                    </p>
+                </div>
 
-<!-- SIDEBAR -->
-<?php require_once __DIR__ . '/../../includes/sidebar.php'; ?>
+                <button type="button" onclick="window.print()" class="btn btn-success">
+                    Imprimir reporte activo
+                </button>
+            </div>
 
-<!-- CONTENIDO -->
-<div class="col-md-9">
+            <?php if (!empty($error)): ?>
+                <div class="alert alert-danger">
+                    <?= htmlspecialchars($error); ?>
+                </div>
+            <?php endif; ?>
 
-<div class="main-card">
+            <div class="row g-3 mb-3 no-print">
+                <div class="col-12 col-md-6 col-xl-3">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-body">
+                            <h6 class="text-muted mb-1">Stock bajo</h6>
+                            <h3 class="mb-0"><?= count($stockBajo); ?></h3>
+                        </div>
+                    </div>
+                </div>
 
-<div class="d-flex justify-content-between align-items-center">
-    <h2>Reportes</h2>
+                <div class="col-12 col-md-6 col-xl-3">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-body">
+                            <h6 class="text-muted mb-1">Por vencer</h6>
+                            <h3 class="mb-0"><?= count($porVencer); ?></h3>
+                        </div>
+                    </div>
+                </div>
 
-    <button onclick="window.print()" class="btn-print">
-        Imprimir
-    </button>
+                <div class="col-12 col-md-6 col-xl-3">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-body">
+                            <h6 class="text-muted mb-1">Total compras</h6>
+                            <h3 class="mb-0">Q<?= number_format($totalCompras, 2); ?></h3>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-6 col-xl-3">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-body">
+                            <h6 class="text-muted mb-1">Total ventas</h6>
+                            <h3 class="mb-0">Q<?= number_format($totalVentas, 2); ?></h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <ul class="nav nav-tabs no-print" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active"
+                                    data-bs-toggle="tab"
+                                    data-bs-target="#stock"
+                                    type="button"
+                                    role="tab">
+                                Stock bajo
+                            </button>
+                        </li>
+
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link"
+                                    data-bs-toggle="tab"
+                                    data-bs-target="#vencer"
+                                    type="button"
+                                    role="tab">
+                                Por vencer
+                            </button>
+                        </li>
+
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link"
+                                    data-bs-toggle="tab"
+                                    data-bs-target="#compras"
+                                    type="button"
+                                    role="tab">
+                                Compras
+                            </button>
+                        </li>
+
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link"
+                                    data-bs-toggle="tab"
+                                    data-bs-target="#ventas"
+                                    type="button"
+                                    role="tab">
+                                Ventas
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content mt-4">
+                        <div class="tab-pane fade show active" id="stock" role="tabpanel">
+                            <div class="report-header-print">
+                                <h3><?= htmlspecialchars(APP_NAME); ?></h3>
+                                <p>Reporte de stock bajo</p>
+                                <p>Fecha: <?= htmlspecialchars($fechaActual); ?></p>
+                            </div>
+
+                            <h4 class="mb-3">Reporte de stock bajo</h4>
+
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-hover align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Producto</th>
+                                            <th>Presentación</th>
+                                            <th>Stock mínimo</th>
+                                            <th>Stock actual</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php if (empty($stockBajo)): ?>
+                                            <tr>
+                                                <td colspan="4" class="text-center text-muted">
+                                                    No hay productos con stock bajo.
+                                                </td>
+                                            </tr>
+                                        <?php else: ?>
+                                            <?php foreach ($stockBajo as $item): ?>
+                                                <tr>
+                                                    <td><?= htmlspecialchars($item['nombre']); ?></td>
+                                                    <td><?= htmlspecialchars($item['presentacion'] ?? ''); ?></td>
+                                                    <td><?= (int) $item['stock_minimo']; ?></td>
+                                                    <td><?= (int) $item['stock_actual']; ?></td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        <?php endif; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="vencer" role="tabpanel">
+                            <div class="report-header-print">
+                                <h3><?= htmlspecialchars(APP_NAME); ?></h3>
+                                <p>Reporte de productos por vencer</p>
+                                <p>Fecha: <?= htmlspecialchars($fechaActual); ?></p>
+                            </div>
+
+                            <h4 class="mb-3">Reporte de productos por vencer</h4>
+
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-hover align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Producto</th>
+                                            <th>Presentación</th>
+                                            <th>Lote</th>
+                                            <th>Vencimiento</th>
+                                            <th>Días</th>
+                                            <th>Cantidad</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php if (empty($porVencer)): ?>
+                                            <tr>
+                                                <td colspan="6" class="text-center text-muted">
+                                                    No hay productos próximos a vencer.
+                                                </td>
+                                            </tr>
+                                        <?php else: ?>
+                                            <?php foreach ($porVencer as $item): ?>
+                                                <tr>
+                                                    <td><?= htmlspecialchars($item['nombre_producto']); ?></td>
+                                                    <td><?= htmlspecialchars($item['presentacion'] ?? ''); ?></td>
+                                                    <td><?= htmlspecialchars($item['codigo_lote']); ?></td>
+                                                    <td><?= date('d/m/Y', strtotime($item['fecha_vencimiento'])); ?></td>
+                                                    <td>
+                                                        <?php if ((int) $item['dias_restantes'] < 0): ?>
+                                                            <span class="badge bg-danger">
+                                                                Vencido
+                                                            </span>
+                                                        <?php else: ?>
+                                                            <?= (int) $item['dias_restantes']; ?>
+                                                        <?php endif; ?>
+                                                    </td>
+                                                    <td><?= (int) $item['cantidad_actual']; ?></td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        <?php endif; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="compras" role="tabpanel">
+                            <div class="report-header-print">
+                                <h3><?= htmlspecialchars(APP_NAME); ?></h3>
+                                <p>Reporte de compras</p>
+                                <p>Fecha: <?= htmlspecialchars($fechaActual); ?></p>
+                            </div>
+
+                            <h4 class="mb-3">Reporte de compras</h4>
+
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-hover align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Fecha</th>
+                                            <th>Proveedor</th>
+                                            <th>Usuario</th>
+                                            <th>Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php if (empty($compras)): ?>
+                                            <tr>
+                                                <td colspan="5" class="text-center text-muted">
+                                                    No hay compras registradas.
+                                                </td>
+                                            </tr>
+                                        <?php else: ?>
+                                            <?php foreach ($compras as $item): ?>
+                                                <tr>
+                                                    <td><?= (int) $item['id_compra']; ?></td>
+                                                    <td><?= date('d/m/Y', strtotime($item['fecha_compra'])); ?></td>
+                                                    <td><?= htmlspecialchars($item['proveedor'] ?? ''); ?></td>
+                                                    <td><?= htmlspecialchars($item['usuario'] ?? ''); ?></td>
+                                                    <td>Q<?= number_format((float) $item['total_compra'], 2); ?></td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        <?php endif; ?>
+                                    </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <td colspan="4" class="text-end fw-bold">Total</td>
+                                            <td class="fw-bold">Q<?= number_format($totalCompras, 2); ?></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="ventas" role="tabpanel">
+                            <div class="report-header-print">
+                                <h3><?= htmlspecialchars(APP_NAME); ?></h3>
+                                <p>Reporte de ventas</p>
+                                <p>Fecha: <?= htmlspecialchars($fechaActual); ?></p>
+                            </div>
+
+                            <h4 class="mb-3">Reporte de ventas</h4>
+
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-hover align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Fecha</th>
+                                            <th>Cliente</th>
+                                            <th>Usuario</th>
+                                            <th>Método</th>
+                                            <th>Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php if (empty($ventas)): ?>
+                                            <tr>
+                                                <td colspan="6" class="text-center text-muted">
+                                                    No hay ventas registradas.
+                                                </td>
+                                            </tr>
+                                        <?php else: ?>
+                                            <?php foreach ($ventas as $item): ?>
+                                                <tr>
+                                                    <td><?= (int) $item['id_venta']; ?></td>
+                                                    <td><?= date('d/m/Y H:i', strtotime($item['fecha_venta'])); ?></td>
+                                                    <td><?= htmlspecialchars($item['cliente'] ?? 'Consumidor final'); ?></td>
+                                                    <td><?= htmlspecialchars($item['usuario'] ?? ''); ?></td>
+                                                    <td><?= ucfirst(htmlspecialchars($item['metodo_pago'] ?? '')); ?></td>
+                                                    <td>Q<?= number_format((float) $item['total_venta'], 2); ?></td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        <?php endif; ?>
+                                    </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <td colspan="5" class="text-end fw-bold">Total</td>
+                                            <td class="fw-bold">Q<?= number_format($totalVentas, 2); ?></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
-<!-- TABS -->
-<ul class="nav nav-tabs mt-4">
-
-    <li class="nav-item">
-        <button class="nav-link active"
-                data-bs-toggle="tab"
-                data-bs-target="#stock">
-            Stock Bajo
-        </button>
-    </li>
-
-    <li class="nav-item">
-        <button class="nav-link"
-                data-bs-toggle="tab"
-                data-bs-target="#vencer">
-            Por Vencer
-        </button>
-    </li>
-
-    <li class="nav-item">
-        <button class="nav-link"
-                data-bs-toggle="tab"
-                data-bs-target="#compras">
-            Compras
-        </button>
-    </li>
-
-    <li class="nav-item">
-        <button class="nav-link"
-                data-bs-toggle="tab"
-                data-bs-target="#ventas">
-            Ventas
-        </button>
-    </li>
-
-</ul>
-
-<!-- CONTENIDO TABS -->
-<div class="tab-content mt-4">
-
-<!-- =========================
-     STOCK BAJO
-========================= -->
-
-<div class="tab-pane fade show active" id="stock">
-
-<div class="encabezado">
-    <h3>Farmacia Nikte</h3>
-    <p>Reporte de Stock Bajo</p>
-    <p>Fecha: <?= $fechaActual ?></p>
-</div>
-
-<table class="table table-hover align-middle">
-
-<thead>
-<tr>
-    <th>Producto</th>
-    <th>Stock Actual</th>
-    <th>Stock Mínimo</th>
-</tr>
-</thead>
-
-<tbody>
-
-<?php if(count($stockBajo) > 0): ?>
-
-<?php foreach($stockBajo as $r): ?>
-
-<tr>
-    <td><?= $r['nombre'] ?></td>
-    <td><?= $r['stock_total'] ?></td>
-    <td><?= $r['stock_minimo'] ?></td>
-</tr>
-
-<?php endforeach; ?>
-
-<?php else: ?>
-
-<tr>
-    <td colspan="3" class="text-center">
-        No hay productos con stock bajo
-    </td>
-</tr>
-
-<?php endif; ?>
-
-</tbody>
-</table>
-</div>
-
-<!-- =========================
-     POR VENCER
-========================= -->
-
-<div class="tab-pane fade" id="vencer">
-
-<div class="encabezado">
-    <h3>Farmacia Nikte</h3>
-    <p>Reporte de Productos por Vencer</p>
-    <p>Fecha: <?= $fechaActual ?></p>
-</div>
-
-<table class="table table-hover align-middle">
-
-<thead>
-<tr>
-    <th>Producto</th>
-    <th>Lote</th>
-    <th>Fecha Ingreso</th>
-    <th>Fecha Vencimiento</th>
-    <th>Cantidad</th>
-</tr>
-</thead>
-
-<tbody>
-
-<?php if(count($porVencer) > 0): ?>
-
-<?php foreach($porVencer as $r): ?>
-
-<tr>
-    <td><?= $r['nombre_producto'] ?></td>
-
-    <td><?= $r['codigo_lote'] ?></td>
-
-    <td>
-        <?= date('d/m/Y', strtotime($r['fecha_ingreso'])) ?>
-    </td>
-
-    <td class="text-danger fw-bold">
-        <?= date('d/m/Y', strtotime($r['fecha_vencimiento'])) ?>
-    </td>
-
-    <td><?= $r['cantidad_actual'] ?></td>
-</tr>
-
-<?php endforeach; ?>
-
-<?php else: ?>
-
-<tr>
-    <td colspan="5" class="text-center">
-        No hay productos próximos a vencer
-    </td>
-</tr>
-
-<?php endif; ?>
-
-</tbody>
-</table>
-</div>
-
-<!-- =========================
-     COMPRAS
-========================= -->
-
-<div class="tab-pane fade" id="compras">
-
-<div class="encabezado">
-    <h3>Farmacia Nikte</h3>
-    <p>Reporte de Compras</p>
-    <p>Fecha: <?= $fechaActual ?></p>
-</div>
-
-<table class="table table-hover align-middle">
-
-<thead>
-<tr>
-    <th>ID</th>
-    <th>Fecha</th>
-    <th>Proveedor</th>
-    <th>Total</th>
-</tr>
-</thead>
-
-<tbody>
-
-<?php if(count($compras) > 0): ?>
-
-<?php foreach($compras as $r): ?>
-
-<tr>
-    <td><?= $r['id_compra'] ?></td>
-
-    <td>
-        <?= date('d/m/Y', strtotime($r['fecha_compra'])) ?>
-    </td>
-
-    <td><?= $r['proveedor'] ?></td>
-
-    <td>Q<?= number_format($r['total_compra'], 2) ?></td>
-</tr>
-
-<?php endforeach; ?>
-
-<?php else: ?>
-
-<tr>
-    <td colspan="4" class="text-center">
-        No hay compras registradas
-    </td>
-</tr>
-
-<?php endif; ?>
-
-</tbody>
-</table>
-</div>
-
-<!-- =========================
-     VENTAS
-========================= -->
-
-<div class="tab-pane fade" id="ventas">
-
-<div class="encabezado">
-    <h3>Farmacia Nikte</h3>
-    <p>Reporte de Ventas</p>
-    <p>Fecha: <?= $fechaActual ?></p>
-</div>
-
-<table class="table table-hover align-middle">
-
-<thead>
-<tr>
-    <th>ID</th>
-    <th>Fecha</th>
-    <th>Total</th>
-</tr>
-</thead>
-
-<tbody>
-
-<?php if(count($ventas) > 0): ?>
-
-<?php foreach($ventas as $r): ?>
-
-<tr>
-    <td><?= $r['id_venta'] ?></td>
-
-    <td>
-        <?= date('d/m/Y', strtotime($r['fecha_venta'])) ?>
-    </td>
-
-    <td>Q<?= number_format($r['total_venta'], 2) ?></td>
-</tr>
-
-<?php endforeach; ?>
-
-<?php else: ?>
-
-<tr>
-    <td colspan="3" class="text-center">
-        No hay ventas registradas
-    </td>
-</tr>
-
-<?php endif; ?>
-
-</tbody>
-</table>
-</div>
-
-</div>
-</div>
-</div>
-</div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
-</body>
-</html>
+<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
