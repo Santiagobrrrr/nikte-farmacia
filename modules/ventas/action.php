@@ -103,11 +103,11 @@ try {
         }
 
         $stmtLotes = $pdo->prepare("
-            SELECT id_lote, codigo_lote, cantidad_actual
+            SELECT id_lote, codigo_lote, cantidad_actual, costo_unitario
             FROM lote
             WHERE id_producto = :id_producto
-              AND cantidad_actual > 0
-              AND fecha_vencimiento >= CURDATE()
+            AND cantidad_actual > 0
+            AND fecha_vencimiento >= CURDATE()
             ORDER BY fecha_vencimiento ASC, id_lote ASC
         ");
         $stmtLotes->execute(['id_producto' => $idProducto]);
@@ -127,16 +127,24 @@ try {
                 continue;
             }
 
-            $subtotal = $cantidadTomada * $precioUnitario;
-            $totalVenta += $subtotal;
+        $costoUnitario = (float) $lote['costo_unitario'];
+        $subtotal = $cantidadTomada * $precioUnitario;
 
-            $detallesFinales[] = [
-                'id_producto' => $idProducto,
-                'id_lote' => (int) $lote['id_lote'],
-                'cantidad' => $cantidadTomada,
-                'precio_unitario' => $precioUnitario,
-                'subtotal' => $subtotal,
-            ];
+        $gananciaUnitaria = $precioUnitario - $costoUnitario;
+        $gananciaTotal = $gananciaUnitaria * $cantidadTomada;
+
+        $totalVenta += $subtotal;
+
+        $detallesFinales[] = [
+            'id_producto' => $idProducto,
+            'id_lote' => (int) $lote['id_lote'],
+            'cantidad' => $cantidadTomada,
+            'precio_unitario' => $precioUnitario,
+            'costo_unitario' => $costoUnitario,
+            'ganancia_unitaria' => $gananciaUnitaria,
+            'ganancia_total' => $gananciaTotal,
+            'subtotal' => $subtotal,
+        ];
 
             $cantidadPendiente -= $cantidadTomada;
         }
@@ -161,8 +169,27 @@ try {
 
     foreach ($detallesFinales as $detalle) {
         $stmtDetalle = $pdo->prepare("
-            INSERT INTO detalleventa (id_venta, id_producto, id_lote, cantidad, precio_unitario, subtotal)
-            VALUES (:id_venta, :id_producto, :id_lote, :cantidad, :precio_unitario, :subtotal)
+            INSERT INTO detalleventa (
+                id_venta,
+                id_producto,
+                id_lote,
+                cantidad,
+                precio_unitario,
+                costo_unitario,
+                ganancia_unitaria,
+                ganancia_total,
+                subtotal
+            ) VALUES (
+                :id_venta,
+                :id_producto,
+                :id_lote,
+                :cantidad,
+                :precio_unitario,
+                :costo_unitario,
+                :ganancia_unitaria,
+                :ganancia_total,
+                :subtotal
+            )
         ");
         $stmtDetalle->execute([
             'id_venta' => $idVenta,
@@ -170,6 +197,9 @@ try {
             'id_lote' => $detalle['id_lote'],
             'cantidad' => $detalle['cantidad'],
             'precio_unitario' => $detalle['precio_unitario'],
+            'costo_unitario' => $detalle['costo_unitario'],
+            'ganancia_unitaria' => $detalle['ganancia_unitaria'],
+            'ganancia_total' => $detalle['ganancia_total'],
             'subtotal' => $detalle['subtotal'],
         ]);
 

@@ -1,54 +1,62 @@
 <?php
-$allowed_roles = ['administradora'];
-require_once __DIR__ . '/../../includes/role_check.php';
+require_once __DIR__ . '/../../config/config.php';
+require_once __DIR__ . '/../../includes/auth_check.php';
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../includes/header.php';
+
+$idProducto = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+
+$producto = [
+    'id_producto' => '',
+    'nombre' => '',
+    'descripcion' => '',
+    'presentacion' => '',
+    'precio_venta' => '',
+    'margen_ganancia' => '0',
+    'stock_minimo' => '0',
+    'requiere_receta' => '0',
+    'uso_terapeutico' => '',
+];
 
 $error = $_SESSION['producto_error'] ?? '';
 unset($_SESSION['producto_error']);
 
-$idProducto = isset($_GET['id']) ? (int) $_GET['id'] : 0;
-$modoEdicion = $idProducto > 0;
-
-$producto = [
-    'id_producto' => 0,
-    'nombre' => '',
-    'presentacion' => '',
-    'descripcion' => '',
-    'precio_venta' => '',
-    'stock_minimo' => '',
-    'requiere_receta' => 0,
-    'uso_terapeutico' => '',
-    'activo' => 1,
-];
-
-if ($modoEdicion) {
-    try {
+try {
+    if ($idProducto > 0) {
         $pdo = getPDO();
 
-        $sql = "SELECT id_producto, nombre, presentacion, descripcion, precio_venta, stock_minimo, requiere_receta, uso_terapeutico, activo
-                FROM producto
-                WHERE id_producto = :id_producto
-                LIMIT 1";
+        $stmt = $pdo->prepare("
+            SELECT
+                id_producto,
+                nombre,
+                descripcion,
+                presentacion,
+                precio_venta,
+                margen_ganancia,
+                stock_minimo,
+                requiere_receta,
+                uso_terapeutico
+            FROM producto
+            WHERE id_producto = :id_producto
+            LIMIT 1
+        ");
 
-        $stmt = $pdo->prepare($sql);
         $stmt->execute(['id_producto' => $idProducto]);
-
         $resultado = $stmt->fetch();
 
-        if (!$resultado) {
-            $_SESSION['access_error'] = 'Producto no encontrado.';
+        if ($resultado) {
+            $producto = $resultado;
+        } else {
+            $_SESSION['producto_error'] = 'El producto seleccionado no existe.';
             header('Location: ' . BASE_URL . '/modules/productos/index.php');
             exit;
         }
-
-        $producto = $resultado;
-    } catch (Throwable $e) {
-        $_SESSION['access_error'] = 'No se pudo cargar el producto.';
-        header('Location: ' . BASE_URL . '/modules/productos/index.php');
-        exit;
     }
+} catch (Throwable $e) {
+    $error = 'No se pudo cargar el producto.';
 }
+
+$titulo = $idProducto > 0 ? 'Editar producto' : 'Nuevo producto';
 ?>
 
 <div class="container-fluid py-4">
@@ -56,80 +64,126 @@ if ($modoEdicion) {
         <?php require_once __DIR__ . '/../../includes/sidebar.php'; ?>
 
         <div class="col-12 col-md-9 col-lg-10">
-            <div class="card shadow-sm">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h1 class="mb-1"><?= htmlspecialchars($titulo); ?></h1>
+                    <p class="text-muted mb-0">
+                        Registra la información principal del producto y su margen deseado.
+                    </p>
+                </div>
+
+                <a href="<?= BASE_URL; ?>/modules/productos/index.php" class="btn btn-secondary">
+                    Volver
+                </a>
+            </div>
+
+            <?php if (!empty($error)): ?>
+                <div class="alert alert-danger">
+                    <?= htmlspecialchars($error); ?>
+                </div>
+            <?php endif; ?>
+
+            <div class="card shadow-sm border-0">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h1 class="mb-0"><?= $modoEdicion ? 'Editar producto' : 'Nuevo producto'; ?></h1>
-                        <a href="<?= BASE_URL; ?>/modules/productos/index.php" class="btn btn-secondary">
-                            Volver
-                        </a>
-                    </div>
+                    <form method="POST" action="<?= BASE_URL; ?>/modules/productos/action.php">
+                        <input type="hidden" name="id_producto" value="<?= (int) ($producto['id_producto'] ?? 0); ?>">
 
-                    <?php if (!empty($error)): ?>
-                        <div class="alert alert-danger">
-                            <?= htmlspecialchars($error); ?>
-                        </div>
-                    <?php endif; ?>
-
-                    <form action="<?= BASE_URL; ?>/modules/productos/action.php" method="POST">
-                        <input type="hidden" name="id_producto" value="<?= (int) $producto['id_producto']; ?>">
-
-                        <div class="row">
-                            <div class="col-12 col-md-6 mb-3">
-                                <label for="nombre" class="form-label">Nombre *</label>
-                                <input type="text" id="nombre" name="nombre" class="form-control" required
-                                       value="<?= htmlspecialchars((string) $producto['nombre']); ?>">
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Nombre *</label>
+                                <input
+                                    type="text"
+                                    name="nombre"
+                                    class="form-control"
+                                    value="<?= htmlspecialchars($producto['nombre'] ?? ''); ?>"
+                                    required>
                             </div>
 
-                            <div class="col-12 col-md-6 mb-3">
-                                <label for="presentacion" class="form-label">Presentación</label>
-                                <input type="text" id="presentacion" name="presentacion" class="form-control"
-                                       value="<?= htmlspecialchars((string) ($producto['presentacion'] ?? '')); ?>">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Presentación</label>
+                                <input
+                                    type="text"
+                                    name="presentacion"
+                                    class="form-control"
+                                    value="<?= htmlspecialchars($producto['presentacion'] ?? ''); ?>"
+                                    placeholder="Ejemplo: Tabletas 500 mg">
                             </div>
 
-                            <div class="col-12 mb-3">
-                                <label for="descripcion" class="form-label">Descripción</label>
-                                <textarea id="descripcion" name="descripcion" class="form-control" rows="3"><?= htmlspecialchars((string) ($producto['descripcion'] ?? '')); ?></textarea>
+                            <div class="col-12">
+                                <label class="form-label">Descripción</label>
+                                <textarea
+                                    name="descripcion"
+                                    class="form-control"
+                                    rows="2"><?= htmlspecialchars($producto['descripcion'] ?? ''); ?></textarea>
                             </div>
 
-                            <div class="col-12 col-md-3 mb-3">
-                                <label for="precio_venta" class="form-label">Precio de venta *</label>
-                                <input type="number" step="0.01" min="0" id="precio_venta" name="precio_venta" class="form-control" required
-                                       value="<?= htmlspecialchars((string) $producto['precio_venta']); ?>">
+                            <div class="col-12 col-md-4">
+                                <label class="form-label">Precio de venta</label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    name="precio_venta"
+                                    class="form-control"
+                                    value="<?= htmlspecialchars($producto['precio_venta'] ?? '0'); ?>"
+                                    required>
+                                <small class="text-muted">
+                                    Precio actual al que se venderá el producto.
+                                </small>
                             </div>
 
-                            <div class="col-12 col-md-3 mb-3">
-                                <label for="stock_minimo" class="form-label">Stock mínimo *</label>
-                                <input type="number" min="0" id="stock_minimo" name="stock_minimo" class="form-control" required
-                                       value="<?= htmlspecialchars((string) $producto['stock_minimo']); ?>">
+                            <div class="col-12 col-md-4">
+                                <label class="form-label">Margen de ganancia deseado (%)</label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    name="margen_ganancia"
+                                    class="form-control"
+                                    value="<?= htmlspecialchars($producto['margen_ganancia'] ?? '0'); ?>"
+                                    placeholder="Ejemplo: 30">
+                                <small class="text-muted">
+                                    Se usará para sugerir precios según el costo del lote.
+                                </small>
                             </div>
 
-                            <div class="col-12 col-md-3 mb-3">
-                                <label for="requiere_receta" class="form-label">Requiere receta</label>
-                                <select id="requiere_receta" name="requiere_receta" class="form-select" required>
-                                    <option value="0" <?= (int) $producto['requiere_receta'] === 0 ? 'selected' : ''; ?>>No</option>
-                                    <option value="1" <?= (int) $producto['requiere_receta'] === 1 ? 'selected' : ''; ?>>Sí</option>
+                            <div class="col-12 col-md-4">
+                                <label class="form-label">Stock mínimo</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    name="stock_minimo"
+                                    class="form-control"
+                                    value="<?= htmlspecialchars($producto['stock_minimo'] ?? '0'); ?>"
+                                    required>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">¿Requiere receta?</label>
+                                <select name="requiere_receta" class="form-select">
+                                    <option value="0" <?= (int) ($producto['requiere_receta'] ?? 0) === 0 ? 'selected' : ''; ?>>
+                                        No
+                                    </option>
+                                    <option value="1" <?= (int) ($producto['requiere_receta'] ?? 0) === 1 ? 'selected' : ''; ?>>
+                                        Sí
+                                    </option>
                                 </select>
                             </div>
 
-                            <div class="col-12 col-md-3 mb-3">
-                                <label for="activo" class="form-label">Estado del registro</label>
-                                <select id="activo" name="activo" class="form-select" required>
-                                    <option value="1" <?= (int) $producto['activo'] === 1 ? 'selected' : ''; ?>>Activo</option>
-                                    <option value="0" <?= (int) $producto['activo'] === 0 ? 'selected' : ''; ?>>Inactivo</option>
-                                </select>
-                            </div>
-
-                            <div class="col-12 mb-3">
-                                <label for="uso_terapeutico" class="form-label">Uso terapéutico</label>
-                                <input type="text" id="uso_terapeutico" name="uso_terapeutico" class="form-control"
-                                       value="<?= htmlspecialchars((string) ($producto['uso_terapeutico'] ?? '')); ?>">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Uso terapéutico</label>
+                                <input
+                                    type="text"
+                                    name="uso_terapeutico"
+                                    class="form-control"
+                                    value="<?= htmlspecialchars($producto['uso_terapeutico'] ?? ''); ?>"
+                                    placeholder="Ejemplo: Antibiótico, analgésico, antihistamínico">
                             </div>
                         </div>
 
-                        <div class="d-flex gap-2">
+                        <div class="d-flex gap-2 mt-4">
                             <button type="submit" class="btn btn-success">
-                                <?= $modoEdicion ? 'Actualizar' : 'Guardar'; ?>
+                                Guardar producto
                             </button>
 
                             <a href="<?= BASE_URL; ?>/modules/productos/index.php" class="btn btn-outline-secondary">
@@ -138,6 +192,10 @@ if ($modoEdicion) {
                         </div>
                     </form>
                 </div>
+            </div>
+
+            <div class="alert alert-info mt-3">
+                El margen de ganancia no cambia automáticamente el precio de venta. Sirve como referencia para calcular un precio sugerido cuando se registren nuevos lotes en compras.
             </div>
         </div>
     </div>
