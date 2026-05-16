@@ -193,10 +193,6 @@ $titulo = $idProducto > 0 ? 'Editar producto' : 'Nuevo producto';
                     </form>
                 </div>
             </div>
-
-            <div class="alert alert-info mt-3">
-                El margen de ganancia no cambia automáticamente el precio de venta. Sirve como referencia para calcular un precio sugerido cuando se registren nuevos lotes en compras.
-            </div>
         </div>
     </div>
 </div>
