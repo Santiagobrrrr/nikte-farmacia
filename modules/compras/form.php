@@ -21,7 +21,12 @@ try {
     $proveedores = $stmt->fetchAll();
 
     $stmt = $pdo->query("
-        SELECT id_producto, nombre, presentacion
+        SELECT
+            id_producto,
+            nombre,
+            presentacion,
+            precio_venta,
+            margen_ganancia
         FROM producto
         WHERE activo = 1
         ORDER BY nombre ASC
@@ -62,7 +67,7 @@ $items = $old['items'] ?? [
                     </div>
 
                     <p class="text-muted">
-                        Registro de compra con varios productos y sus respectivos lotes.
+                        Registro de compra con varios productos, lotes y precio sugerido según margen de ganancia.
                     </p>
 
                     <?php if (!empty($error)): ?>
@@ -102,7 +107,13 @@ $items = $old['items'] ?? [
                         <hr>
 
                         <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h4 class="mb-0">Productos de la compra</h4>
+                            <div>
+                                <h4 class="mb-0">Productos de la compra</h4>
+                                <small class="text-muted">
+                                    El precio sugerido no actualiza automáticamente el precio de venta; solo sirve como referencia administrativa.
+                                </small>
+                            </div>
+
                             <button type="button" class="btn btn-outline-success btn-sm" id="addItemBtn">
                                 Agregar producto
                             </button>
@@ -190,6 +201,16 @@ $items = $old['items'] ?? [
                                         </div>
                                     </div>
 
+                                    <div class="alert alert-light border py-2 mb-2 precio-sugerido-box">
+                                        <div>
+                                            <strong>Precio sugerido:</strong>
+                                            <span class="precio-sugerido-texto">
+                                                Selecciona un producto e ingresa el costo unitario.
+                                            </span>
+                                        </div>
+                                        <small class="text-muted precio-sugerido-detalle"></small>
+                                    </div>
+
                                     <div class="text-end">
                                         <small class="text-muted">
                                             Subtotal: Q<span class="subtotal-item">0.00</span>
@@ -258,6 +279,16 @@ $items = $old['items'] ?? [
                                 </div>
                             </div>
 
+                            <div class="alert alert-light border py-2 mb-2 precio-sugerido-box">
+                                <div>
+                                    <strong>Precio sugerido:</strong>
+                                    <span class="precio-sugerido-texto">
+                                        Selecciona un producto e ingresa el costo unitario.
+                                    </span>
+                                </div>
+                                <small class="text-muted precio-sugerido-detalle"></small>
+                            </div>
+
                             <div class="text-end">
                                 <small class="text-muted">
                                     Subtotal: Q<span class="subtotal-item">0.00</span>
@@ -288,8 +319,21 @@ document.addEventListener('DOMContentLoaded', function () {
             .replace(/[\u0300-\u036f]/g, '');
     }
 
+    function escapeHtml(text) {
+        return String(text || '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+    }
+
     function getProductoLabel(producto) {
         return producto.nombre + (producto.presentacion ? ' - ' + producto.presentacion : '');
+    }
+
+    function getProductoById(idProducto) {
+        return productos.find(producto => parseInt(producto.id_producto, 10) === parseInt(idProducto, 10));
     }
 
     function updateLabels() {
@@ -300,6 +344,62 @@ document.addEventListener('DOMContentLoaded', function () {
                 title.textContent = 'Producto #' + (index + 1);
             }
         });
+    }
+
+    function updatePrecioSugerido(row) {
+        const hiddenInput = row.querySelector('.producto-id');
+        const costoInput = row.querySelector('.costo-unitario');
+        const sugeridoTexto = row.querySelector('.precio-sugerido-texto');
+        const detalleTexto = row.querySelector('.precio-sugerido-detalle');
+
+        if (!hiddenInput || !costoInput || !sugeridoTexto || !detalleTexto) {
+            return;
+        }
+
+        const producto = getProductoById(hiddenInput.value);
+        const costo = parseFloat(costoInput.value || 0);
+
+        sugeridoTexto.className = 'precio-sugerido-texto';
+        detalleTexto.textContent = '';
+
+        if (!producto) {
+            sugeridoTexto.textContent = 'Selecciona un producto para calcular la sugerencia.';
+            return;
+        }
+
+        const precioActual = parseFloat(producto.precio_venta || 0);
+        const margen = parseFloat(producto.margen_ganancia || 0);
+
+        if (!costo || costo <= 0) {
+            sugeridoTexto.textContent = 'Ingresa el costo unitario para calcular el precio sugerido.';
+            detalleTexto.textContent = 'Precio actual: Q' + precioActual.toFixed(2) + ' | Margen deseado: ' + margen.toFixed(2) + '%';
+            return;
+        }
+
+        const precioSugerido = costo * (1 + (margen / 100));
+        const diferencia = precioSugerido - precioActual;
+
+        sugeridoTexto.textContent = 'Q' + precioSugerido.toFixed(2);
+
+        if (diferencia > 0) {
+            sugeridoTexto.classList.add('text-danger', 'fw-bold');
+            detalleTexto.textContent =
+                'Precio actual: Q' + precioActual.toFixed(2) +
+                ' | Margen: ' + margen.toFixed(2) + '%' +
+                ' | Sugerencia: subir Q' + diferencia.toFixed(2);
+        } else if (diferencia < 0) {
+            sugeridoTexto.classList.add('text-success', 'fw-bold');
+            detalleTexto.textContent =
+                'Precio actual: Q' + precioActual.toFixed(2) +
+                ' | Margen: ' + margen.toFixed(2) + '%' +
+                ' | El precio actual supera la sugerencia por Q' + Math.abs(diferencia).toFixed(2);
+        } else {
+            sugeridoTexto.classList.add('fw-bold');
+            detalleTexto.textContent =
+                'Precio actual: Q' + precioActual.toFixed(2) +
+                ' | Margen: ' + margen.toFixed(2) + '%' +
+                ' | El precio actual coincide con la sugerencia.';
+        }
     }
 
     function calculateTotals() {
@@ -369,15 +469,21 @@ document.addEventListener('DOMContentLoaded', function () {
             const option = document.createElement('button');
             option.type = 'button';
             option.className = 'list-group-item list-group-item-action';
+
             option.innerHTML = `
-                <div><strong>${producto.nombre}</strong></div>
-                <small class="text-muted">${producto.presentacion || 'Sin presentación'}</small>
+                <div><strong>${escapeHtml(producto.nombre)}</strong></div>
+                <small class="text-muted">
+                    ${escapeHtml(producto.presentacion || 'Sin presentación')}
+                    | Precio actual: Q${parseFloat(producto.precio_venta || 0).toFixed(2)}
+                    | Margen: ${parseFloat(producto.margen_ganancia || 0).toFixed(2)}%
+                </small>
             `;
 
             option.addEventListener('click', function () {
                 input.value = getProductoLabel(producto);
                 hiddenInput.value = producto.id_producto;
                 hideSuggestions(row);
+                updatePrecioSugerido(row);
             });
 
             suggestions.appendChild(option);
@@ -405,7 +511,10 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         if (costoInput) {
-            costoInput.addEventListener('input', calculateTotals);
+            costoInput.addEventListener('input', function () {
+                calculateTotals();
+                updatePrecioSugerido(row);
+            });
         }
 
         if (cantidadInput) {
@@ -415,6 +524,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (input && hiddenInput) {
             input.addEventListener('input', function () {
                 hiddenInput.value = '';
+                updatePrecioSugerido(row);
                 renderSuggestions(row, input.value);
             });
 
@@ -428,6 +538,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 }, 180);
             });
         }
+
+        updatePrecioSugerido(row);
     }
 
     addItemBtn.addEventListener('click', function () {
