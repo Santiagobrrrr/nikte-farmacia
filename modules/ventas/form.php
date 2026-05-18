@@ -86,16 +86,6 @@ try {
 ?>
 
 <style>
-    .pos-summary {
-        position: sticky;
-        top: 1rem;
-    }
-
-    .total-box {
-        font-size: 2rem;
-        font-weight: 700;
-    }
-
     .producto-suggestions {
         z-index: 30;
         max-height: 240px;
@@ -105,6 +95,35 @@ try {
     .venta-table td,
     .venta-table th {
         vertical-align: middle;
+    }
+
+    .venta-total-box {
+        font-size: 2.3rem;
+        font-weight: 700;
+        color: #198754;
+        line-height: 1;
+    }
+
+    .venta-section-title {
+        font-size: 1.35rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+
+    .venta-card {
+        border: 0;
+        box-shadow: 0 .125rem .35rem rgba(0,0,0,.08);
+    }
+
+    .venta-footer-box {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: .75rem;
+    }
+
+    .mini-label {
+        color: #6c757d;
+        font-size: .95rem;
     }
 </style>
 
@@ -116,9 +135,6 @@ try {
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <div>
                     <h1 class="mb-1">Nueva venta</h1>
-                    <p class="text-muted mb-0">
-                        Punto de venta para registrar productos, validar stock y generar comprobante.
-                    </p>
                 </div>
 
                 <a href="<?= BASE_URL ?>/modules/ventas/index.php" class="btn btn-secondary">
@@ -131,141 +147,158 @@ try {
             <?php endif; ?>
 
             <form method="POST" action="<?= BASE_URL ?>/modules/ventas/action.php" id="form-venta">
-                <div class="row g-3">
-                    <div class="col-12 col-xl-8">
-                        <div class="card shadow-sm border-0 mb-3">
-                            <div class="card-body">
-                                <h4 class="mb-3">Buscar producto</h4>
 
-                                <div class="row g-2 align-items-end">
-                                    <div class="col-12 col-lg-6 position-relative">
-                                        <label class="form-label">Producto</label>
-                                        <input
-                                            type="text"
-                                            id="search-producto"
-                                            class="form-control"
-                                            placeholder="Escribe para buscar producto"
-                                            autocomplete="off">
+                <!-- 1. RESUMEN / DATOS DE VENTA -->
+                <div class="card venta-card mb-3">
+                    <div class="card-body">
+                        <div class="venta-section-title">Resumen de venta</div>
 
-                                        <div
-                                            id="suggestions-producto"
-                                            class="list-group position-absolute w-100 shadow-sm producto-suggestions d-none">
-                                        </div>
-                                    </div>
-
-                                    <div class="col-12 col-md-4 col-lg-2">
-                                        <label class="form-label">Cantidad</label>
-                                        <input type="number" id="input-cantidad" class="form-control" min="1" value="1">
-                                    </div>
-
-                                    <div class="col-12 col-md-4 col-lg-2">
-                                        <label class="form-label">Precio</label>
-                                        <input type="text" id="input-precio" class="form-control" readonly>
-                                    </div>
-
-                                    <div class="col-12 col-md-4 col-lg-2">
-                                        <label class="form-label">Stock</label>
-                                        <input type="text" id="input-stock" class="form-control" readonly>
-                                    </div>
-
-                                    <div class="col-12">
-                                        <button type="button" id="btn-agregar" class="btn btn-primary">
-                                            Agregar producto
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div id="receta-warning" class="alert alert-warning mt-3 d-none mb-0">
-                                    Este producto requiere receta médica. Verifique la receta antes de completar la venta.
-                                </div>
+                        <div class="row g-3">
+                            <div class="col-12 col-lg-5">
+                                <label class="form-label">Cliente</label>
+                                <input
+                                    type="text"
+                                    name="nombre_cliente"
+                                    class="form-control"
+                                    placeholder="Consumidor final"
+                                    value="<?= htmlspecialchars($old['nombre_cliente'] ?? '') ?>">
+                                <small class="text-muted">
+                                    Puede dejarse vacío para registrar como consumidor final.
+                                </small>
                             </div>
-                        </div>
 
-                        <div class="card shadow-sm border-0">
-                            <div class="card-body">
-                                <h4 class="mb-3">Productos agregados</h4>
+                            <div class="col-12 col-md-6 col-lg-3">
+                                <label class="form-label">Método de pago</label>
+                                <select name="metodo_pago" class="form-select">
+                                    <?php $metodoOld = $old['metodo_pago'] ?? 'efectivo'; ?>
+                                    <option value="efectivo" <?= $metodoOld === 'efectivo' ? 'selected' : ''; ?>>Efectivo</option>
+                                    <option value="tarjeta" <?= $metodoOld === 'tarjeta' ? 'selected' : ''; ?>>Tarjeta</option>
+                                    <option value="transferencia" <?= $metodoOld === 'transferencia' ? 'selected' : ''; ?>>Transferencia</option>
+                                </select>
+                            </div>
 
-                                <div class="table-responsive">
-                                    <table class="table table-bordered table-hover venta-table">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th>Producto</th>
-                                                <th width="120">Cantidad</th>
-                                                <th width="150">Precio</th>
-                                                <th width="150">Subtotal</th>
-                                                <th width="100"></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="tbody-productos">
-                                            <tr id="fila-vacia">
-                                                <td colspan="5" class="text-center text-muted">
-                                                    No hay productos agregados.
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
+                            <div class="col-6 col-md-3 col-lg-2">
+                                <label class="form-label">Productos</label>
+                                <input type="text" id="cantidad-items-view" class="form-control" value="0" readonly>
+                            </div>
 
-                                <div class="alert alert-light border mb-0">
-                                    El precio se toma automáticamente desde el inventario y no puede modificarse manualmente.
-                                </div>
+                            <div class="col-6 col-md-3 col-lg-2">
+                                <label class="form-label">Total actual</label>
+                                <input type="text" id="total-venta-view" class="form-control" value="Q 0.00" readonly>
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <div class="col-12 col-xl-4">
-                        <div class="card shadow-sm border-0 pos-summary">
-                            <div class="card-body">
-                                <h4 class="mb-3">Resumen de venta</h4>
+                <!-- 2. BUSQUEDA DE PRODUCTO -->
+                <div class="card venta-card mb-3">
+                    <div class="card-body">
+                        <div class="venta-section-title">Búsqueda de productos</div>
 
-                                <div class="mb-3">
-                                    <label class="form-label">Cliente</label>
-                                    <input
-                                        type="text"
-                                        name="nombre_cliente"
-                                        class="form-control"
-                                        placeholder="Consumidor final"
-                                        value="<?= htmlspecialchars($old['nombre_cliente'] ?? '') ?>">
-                                    <small class="text-muted">
-                                        Puede dejarse vacío para registrar como consumidor final.
-                                    </small>
+                        <div class="row g-2 align-items-end">
+                            <div class="col-12 col-lg-5 position-relative">
+                                <label class="form-label">Producto</label>
+                                <input
+                                    type="text"
+                                    id="search-producto"
+                                    class="form-control"
+                                    placeholder="Escribe para buscar producto"
+                                    autocomplete="off">
+
+                                <div
+                                    id="suggestions-producto"
+                                    class="list-group position-absolute w-100 shadow-sm producto-suggestions d-none">
                                 </div>
+                            </div>
 
-                                <div class="mb-3">
-                                    <label class="form-label">Método de pago</label>
-                                    <select name="metodo_pago" class="form-select">
-                                        <?php $metodoOld = $old['metodo_pago'] ?? 'efectivo'; ?>
-                                        <option value="efectivo" <?= $metodoOld === 'efectivo' ? 'selected' : ''; ?>>Efectivo</option>
-                                        <option value="tarjeta" <?= $metodoOld === 'tarjeta' ? 'selected' : ''; ?>>Tarjeta</option>
-                                        <option value="transferencia" <?= $metodoOld === 'transferencia' ? 'selected' : ''; ?>>Transferencia</option>
-                                    </select>
-                                </div>
+                            <div class="col-12 col-md-4 col-lg-2">
+                                <label class="form-label">Cantidad</label>
+                                <input type="number" id="input-cantidad" class="form-control" min="1" value="1">
+                            </div>
 
-                                <hr>
+                            <div class="col-12 col-md-4 col-lg-2">
+                                <label class="form-label">Precio</label>
+                                <input type="text" id="input-precio" class="form-control" readonly>
+                            </div>
 
-                                <div class="d-flex justify-content-between mb-2">
-                                    <span class="text-muted">Productos agregados</span>
-                                    <strong id="cantidad-items">0</strong>
-                                </div>
+                            <div class="col-12 col-md-4 col-lg-2">
+                                <label class="form-label">Stock</label>
+                                <input type="text" id="input-stock" class="form-control" readonly>
+                            </div>
 
-                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <span class="text-muted">Total</span>
-                                    <span class="total-box">Q <span id="total-venta">0.00</span></span>
-                                </div>
+                            <div class="col-12 col-lg-1 d-grid">
+                                <button type="button" id="btn-agregar" class="btn btn-primary">
+                                    Agregar
+                                </button>
+                            </div>
+                        </div>
 
-                                <div id="productos-hidden"></div>
+                        <div id="receta-warning" class="alert alert-warning mt-3 d-none mb-0">
+                            Este producto requiere receta médica. Verifique la receta antes de completar la venta.
+                        </div>
+                    </div>
+                </div>
 
-                                <button type="submit" id="btn-guardar-venta" class="btn btn-success w-100 mb-2">
+                <!-- 3. TABLA DE PRODUCTOS -->
+                <div class="card venta-card mb-3">
+                    <div class="card-body">
+                        <div class="venta-section-title">Productos agregados</div>
+
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover venta-table mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th width="130">Cantidad</th>
+                                        <th width="150">Precio</th>
+                                        <th width="150">Subtotal</th>
+                                        <th width="110">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-productos">
+                                    <tr id="fila-vacia">
+                                        <td colspan="5" class="text-center text-muted">
+                                            No hay productos agregados.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="alert alert-light border mt-3 mb-0">
+                            El precio se toma automáticamente desde el inventario y no puede modificarse manualmente.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. TOTAL Y CIERRE -->
+                <div class="venta-footer-box p-3">
+                    <div class="row align-items-center g-3">
+                        <div class="col-12 col-lg-6">
+                            <div class="mini-label mb-1">Total de la venta</div>
+                            <div class="venta-total-box">
+                                Q <span id="total-venta">0.00</span>
+                            </div>
+                            <small class="text-muted">
+                                Revise los productos agregados antes de guardar la venta.
+                            </small>
+                        </div>
+
+                        <div class="col-12 col-lg-6">
+                            <div class="d-flex flex-column flex-md-row gap-2 justify-content-lg-end">
+                                <button type="submit" id="btn-guardar-venta" class="btn btn-success px-4">
                                     Guardar venta
                                 </button>
 
-                                <a href="<?= BASE_URL ?>/modules/ventas/index.php" class="btn btn-outline-secondary w-100">
+                                <a href="<?= BASE_URL ?>/modules/ventas/index.php" class="btn btn-outline-secondary px-4">
                                     Cancelar
                                 </a>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                <div id="productos-hidden"></div>
             </form>
         </div>
     </div>
@@ -293,7 +326,8 @@ const recetaWarning = document.getElementById('receta-warning');
 const tbody = document.getElementById('tbody-productos');
 const hiddenContainer = document.getElementById('productos-hidden');
 const totalVentaEl = document.getElementById('total-venta');
-const cantidadItemsEl = document.getElementById('cantidad-items');
+const totalVentaViewEl = document.getElementById('total-venta-view');
+const cantidadItemsEl = document.getElementById('cantidad-items-view');
 const guardarBtn = document.getElementById('btn-guardar-venta');
 
 function normalizarTexto(texto) {
@@ -454,7 +488,8 @@ function renderTabla() {
         tbody.innerHTML = '<tr id="fila-vacia"><td colspan="5" class="text-center text-muted">No hay productos agregados.</td></tr>';
         hiddenContainer.innerHTML = '';
         totalVentaEl.textContent = '0.00';
-        cantidadItemsEl.textContent = '0';
+        totalVentaViewEl.value = 'Q 0.00';
+        cantidadItemsEl.value = '0';
         return;
     }
 
@@ -490,7 +525,8 @@ function renderTabla() {
     tbody.innerHTML = html;
     hiddenContainer.innerHTML = hiddenHtml;
     totalVentaEl.textContent = total.toFixed(2);
-    cantidadItemsEl.textContent = cantidadItems;
+    totalVentaViewEl.value = 'Q ' + total.toFixed(2);
+    cantidadItemsEl.value = cantidadItems;
 }
 
 function quitarProducto(index) {
