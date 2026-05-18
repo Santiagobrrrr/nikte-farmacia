@@ -140,9 +140,6 @@ try {
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <div>
                     <h1 class="mb-1">Nueva venta</h1>
-                    <p class="text-muted mb-0">
-                        Punto de venta para registrar productos, validar stock y generar comprobante.
-                    </p>
                 </div>
 
                 <a href="<?= BASE_URL ?>/modules/ventas/index.php" class="btn btn-secondary">
@@ -330,10 +327,6 @@ try {
                                     placeholder="Ejemplo: promoción autorizada">
                             </div>
                         </div>
-
-                        <small class="text-muted d-block mt-2">
-                            Si el descuento es 0%, no se necesita clave ni motivo. La validación final se realiza al guardar la venta.
-                        </small>
                     </div>
                 </div>
 
@@ -364,9 +357,6 @@ try {
                                 </div>
 
                                 <div class="col-12">
-                                    <small class="text-muted">
-                                        Revise los productos agregados y el descuento antes de guardar la venta.
-                                    </small>
                                 </div>
                             </div>
                         </div>
