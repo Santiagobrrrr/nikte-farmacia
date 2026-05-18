@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../includes/auth_check.php';
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../includes/header.php';
@@ -12,6 +13,10 @@ unset($_SESSION['venta_old']);
 $productos = [];
 $productosMap = [];
 $itemsJs = [];
+
+$descuentoOld = isset($old['descuento_porcentaje']) ? (float) $old['descuento_porcentaje'] : 0;
+$motivoDescuentoOld = $old['motivo_descuento'] ?? '';
+$maxDescuento = defined('MAX_DESCUENTO_PORCENTAJE') ? (float) MAX_DESCUENTO_PORCENTAJE : 20;
 
 try {
     $pdo = getPDO();
@@ -135,6 +140,9 @@ try {
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <div>
                     <h1 class="mb-1">Nueva venta</h1>
+                    <p class="text-muted mb-0">
+                        Punto de venta para registrar productos, validar stock y generar comprobante.
+                    </p>
                 </div>
 
                 <a href="<?= BASE_URL ?>/modules/ventas/index.php" class="btn btn-secondary">
@@ -190,7 +198,7 @@ try {
                     </div>
                 </div>
 
-                <!-- 2. BUSQUEDA DE PRODUCTO -->
+                <!-- 2. BÚSQUEDA DE PRODUCTOS -->
                 <div class="card venta-card mb-3">
                     <div class="card-body">
                         <div class="venta-section-title">Búsqueda de productos</div>
@@ -271,20 +279,94 @@ try {
                     </div>
                 </div>
 
-                <!-- 4. TOTAL Y CIERRE -->
+                <!-- 4. DESCUENTO AUTORIZADO -->
+                <div class="card venta-card mb-3">
+                    <div class="card-body">
+                        <div class="venta-section-title">Descuento autorizado</div>
+
+                        <div class="row g-3">
+                            <div class="col-12 col-md-3">
+                                <label class="form-label">Descuento (%)</label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    max="<?= htmlspecialchars((string) $maxDescuento); ?>"
+                                    name="descuento_porcentaje"
+                                    id="descuento_porcentaje"
+                                    class="form-control"
+                                    value="<?= htmlspecialchars((string) $descuentoOld); ?>">
+                                <small class="text-muted">
+                                    Máximo permitido: <?= number_format($maxDescuento, 2); ?>%
+                                </small>
+                            </div>
+
+                            <div class="col-12 col-md-3">
+                                <label class="form-label">Clave de autorización</label>
+                                <input
+                                    type="password"
+                                    name="clave_descuento"
+                                    id="clave_descuento"
+                                    class="form-control"
+                                    placeholder="Requerida si hay descuento">
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Motivo del descuento</label>
+                                <input
+                                    type="text"
+                                    name="motivo_descuento"
+                                    id="motivo_descuento"
+                                    class="form-control"
+                                    maxlength="150"
+                                    value="<?= htmlspecialchars($motivoDescuentoOld); ?>"
+                                    placeholder="Ejemplo: promoción autorizada">
+                            </div>
+                        </div>
+
+                        <small class="text-muted d-block mt-2">
+                            Si el descuento es 0%, no se necesita clave ni motivo. La validación final se realiza al guardar la venta.
+                        </small>
+                    </div>
+                </div>
+
+                <!-- 5. TOTAL Y CIERRE -->
                 <div class="venta-footer-box p-3">
                     <div class="row align-items-center g-3">
                         <div class="col-12 col-lg-6">
-                            <div class="mini-label mb-1">Total de la venta</div>
-                            <div class="venta-total-box">
-                                Q <span id="total-venta">0.00</span>
+                            <div class="row g-2">
+                                <div class="col-12">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Subtotal</span>
+                                        <strong>Q <span id="subtotal-venta">0.00</span></strong>
+                                    </div>
+                                </div>
+
+                                <div class="col-12">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Descuento</span>
+                                        <strong class="text-danger">- Q <span id="descuento-venta">0.00</span></strong>
+                                    </div>
+                                </div>
+
+                                <div class="col-12">
+                                    <div class="mini-label mb-1">Total final</div>
+                                    <div class="venta-total-box">
+                                        Q <span id="total-venta">0.00</span>
+                                    </div>
+                                </div>
+
+                                <div class="col-12">
+                                    <small class="text-muted">
+                                        Revise los productos agregados y el descuento antes de guardar la venta.
+                                    </small>
+                                </div>
                             </div>
-                            <small class="text-muted">
-                                Revise los productos agregados antes de guardar la venta.
-                            </small>
                         </div>
 
                         <div class="col-12 col-lg-6">
+                            <div id="productos-hidden"></div>
+
                             <div class="d-flex flex-column flex-md-row gap-2 justify-content-lg-end">
                                 <button type="submit" id="btn-guardar-venta" class="btn btn-success px-4">
                                     Guardar venta
@@ -298,7 +380,6 @@ try {
                     </div>
                 </div>
 
-                <div id="productos-hidden"></div>
             </form>
         </div>
     </div>
@@ -326,6 +407,12 @@ const recetaWarning = document.getElementById('receta-warning');
 const tbody = document.getElementById('tbody-productos');
 const hiddenContainer = document.getElementById('productos-hidden');
 const totalVentaEl = document.getElementById('total-venta');
+const subtotalVentaEl = document.getElementById('subtotal-venta');
+const descuentoVentaEl = document.getElementById('descuento-venta');
+const descuentoInput = document.getElementById('descuento_porcentaje');
+const claveDescuentoInput = document.getElementById('clave_descuento');
+const motivoDescuentoInput = document.getElementById('motivo_descuento');
+const maxDescuento = <?= json_encode($maxDescuento); ?>;
 const totalVentaViewEl = document.getElementById('total-venta-view');
 const cantidadItemsEl = document.getElementById('cantidad-items-view');
 const guardarBtn = document.getElementById('btn-guardar-venta');
@@ -483,23 +570,80 @@ document.getElementById('btn-agregar').addEventListener('click', function () {
     searchInput.focus();
 });
 
+function calcularSubtotalBruto() {
+    return productosVenta.reduce((acumulado, producto) => {
+        return acumulado + producto.subtotal;
+    }, 0);
+}
+
+function obtenerDescuentoPorcentaje() {
+    let descuento = parseFloat(descuentoInput?.value || 0);
+
+    if (isNaN(descuento) || descuento < 0) {
+        descuento = 0;
+    }
+
+    if (descuento > maxDescuento) {
+        descuento = maxDescuento;
+        descuentoInput.value = maxDescuento;
+    }
+
+    return descuento;
+}
+
+function actualizarTotales() {
+    const subtotal = calcularSubtotalBruto();
+    const descuentoPorcentaje = obtenerDescuentoPorcentaje();
+    const descuentoMonto = subtotal * (descuentoPorcentaje / 100);
+    const totalFinal = subtotal - descuentoMonto;
+
+    if (subtotalVentaEl) {
+        subtotalVentaEl.textContent = subtotal.toFixed(2);
+    }
+
+    if (descuentoVentaEl) {
+        descuentoVentaEl.textContent = descuentoMonto.toFixed(2);
+    }
+
+    if (totalVentaEl) {
+        totalVentaEl.textContent = totalFinal.toFixed(2);
+    }
+
+    if (totalVentaViewEl) {
+        totalVentaViewEl.value = 'Q ' + totalFinal.toFixed(2);
+    }
+}
+
 function renderTabla() {
     if (productosVenta.length === 0) {
         tbody.innerHTML = '<tr id="fila-vacia"><td colspan="5" class="text-center text-muted">No hay productos agregados.</td></tr>';
         hiddenContainer.innerHTML = '';
-        totalVentaEl.textContent = '0.00';
-        totalVentaViewEl.value = 'Q 0.00';
         cantidadItemsEl.value = '0';
+
+        if (subtotalVentaEl) {
+            subtotalVentaEl.textContent = '0.00';
+        }
+
+        if (descuentoVentaEl) {
+            descuentoVentaEl.textContent = '0.00';
+        }
+
+        if (totalVentaEl) {
+            totalVentaEl.textContent = '0.00';
+        }
+
+        if (totalVentaViewEl) {
+            totalVentaViewEl.value = 'Q 0.00';
+        }
+
         return;
     }
 
     let html = '';
     let hiddenHtml = '';
-    let total = 0;
     let cantidadItems = 0;
 
     productosVenta.forEach((producto, index) => {
-        total += producto.subtotal;
         cantidadItems += producto.cantidad;
 
         html += `
@@ -524,9 +668,9 @@ function renderTabla() {
 
     tbody.innerHTML = html;
     hiddenContainer.innerHTML = hiddenHtml;
-    totalVentaEl.textContent = total.toFixed(2);
-    totalVentaViewEl.value = 'Q ' + total.toFixed(2);
     cantidadItemsEl.value = cantidadItems;
+
+    actualizarTotales();
 }
 
 function quitarProducto(index) {
@@ -536,11 +680,37 @@ function quitarProducto(index) {
 
 window.quitarProducto = quitarProducto;
 
+if (descuentoInput) {
+    descuentoInput.addEventListener('input', actualizarTotales);
+}
+
 document.getElementById('form-venta').addEventListener('submit', function (e) {
     if (productosVenta.length === 0) {
         e.preventDefault();
         alert('Debes agregar al menos un producto.');
         return;
+    }
+
+    if (!hiddenContainer || hiddenContainer.querySelectorAll('input').length === 0) {
+        e.preventDefault();
+        alert('Los productos no se prepararon correctamente para guardar. Vuelve a agregar el producto.');
+        return;
+    }
+
+    const descuento = obtenerDescuentoPorcentaje();
+
+    if (descuento > 0) {
+        if (!claveDescuentoInput || claveDescuentoInput.value.trim() === '') {
+            e.preventDefault();
+            alert('Debes ingresar la clave de autorización para aplicar descuento.');
+            return;
+        }
+
+        if (!motivoDescuentoInput || motivoDescuentoInput.value.trim() === '') {
+            e.preventDefault();
+            alert('Debes ingresar el motivo del descuento.');
+            return;
+        }
     }
 
     guardarBtn.disabled = true;
