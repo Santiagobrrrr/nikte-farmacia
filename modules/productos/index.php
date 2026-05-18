@@ -137,7 +137,7 @@ try {
                                 type="text"
                                 id="liveSearch"
                                 class="form-control"
-                                placeholder="Buscar en tiempo real por nombre, presentación, descripción o uso terapéutico">
+                                placeholder="Buscar por nombre, presentación, descripción o uso terapéutico">
                         </div>
 
                         <div class="col-12 col-md-2">

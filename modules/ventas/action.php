@@ -13,6 +13,10 @@ $nombreCliente = trim($_POST['nombre_cliente'] ?? '');
 $metodoPago = trim($_POST['metodo_pago'] ?? 'efectivo');
 $productosPost = $_POST['productos'] ?? [];
 
+$descuentoPorcentaje = isset($_POST['descuento_porcentaje']) ? (float) $_POST['descuento_porcentaje'] : 0;
+$claveDescuento = trim($_POST['clave_descuento'] ?? '');
+$motivoDescuento = trim($_POST['motivo_descuento'] ?? '');
+
 if ($nombreCliente === '') {
     $nombreCliente = 'Consumidor final';
 }
@@ -26,12 +30,47 @@ $_SESSION['venta_old'] = [
     'nombre_cliente' => $nombreCliente === 'Consumidor final' ? '' : $nombreCliente,
     'metodo_pago' => $metodoPago,
     'productos' => $productosPost,
+    'descuento_porcentaje' => $descuentoPorcentaje,
+    'motivo_descuento' => $motivoDescuento,
 ];
 
 if (!is_array($productosPost) || empty($productosPost)) {
     $_SESSION['venta_error'] = 'Debes agregar al menos un producto.';
     header('Location: ' . BASE_URL . '/modules/ventas/form.php');
     exit;
+}
+
+if ($descuentoPorcentaje < 0) {
+    $_SESSION['venta_error'] = 'El descuento no puede ser negativo.';
+    header('Location: ' . BASE_URL . '/modules/ventas/form.php');
+    exit;
+}
+
+$maxDescuento = defined('MAX_DESCUENTO_PORCENTAJE') ? (float) MAX_DESCUENTO_PORCENTAJE : 20;
+
+if ($descuentoPorcentaje > $maxDescuento) {
+    $_SESSION['venta_error'] = 'El descuento no puede ser mayor al ' . $maxDescuento . '%.';
+    header('Location: ' . BASE_URL . '/modules/ventas/form.php');
+    exit;
+}
+
+if ($descuentoPorcentaje > 0) {
+    $claveCorrecta = defined('CLAVE_DESCUENTO') ? CLAVE_DESCUENTO : 'NIKTE2026';
+
+    if ($claveDescuento !== $claveCorrecta) {
+        $_SESSION['venta_error'] = 'La clave de autorización del descuento no es correcta.';
+        header('Location: ' . BASE_URL . '/modules/ventas/form.php');
+        exit;
+    }
+
+    if ($motivoDescuento === '') {
+        $_SESSION['venta_error'] = 'Debes ingresar el motivo del descuento.';
+        header('Location: ' . BASE_URL . '/modules/ventas/form.php');
+        exit;
+    }
+} else {
+    $descuentoPorcentaje = 0;
+    $motivoDescuento = null;
 }
 
 $productosAgrupados = [];
@@ -70,7 +109,7 @@ try {
     }
 
     $detallesFinales = [];
-    $totalVenta = 0;
+    $subtotalVenta = 0;
 
     foreach ($productosAgrupados as $idProducto => $cantidadSolicitada) {
         $stmtProducto = $pdo->prepare("
@@ -106,8 +145,8 @@ try {
             SELECT id_lote, codigo_lote, cantidad_actual, costo_unitario
             FROM lote
             WHERE id_producto = :id_producto
-            AND cantidad_actual > 0
-            AND fecha_vencimiento >= CURDATE()
+              AND cantidad_actual > 0
+              AND fecha_vencimiento >= CURDATE()
             ORDER BY fecha_vencimiento ASC, id_lote ASC
         ");
         $stmtLotes->execute(['id_producto' => $idProducto]);
@@ -127,24 +166,25 @@ try {
                 continue;
             }
 
-        $costoUnitario = (float) $lote['costo_unitario'];
-        $subtotal = $cantidadTomada * $precioUnitario;
+            $costoUnitario = (float) $lote['costo_unitario'];
+            $subtotal = $cantidadTomada * $precioUnitario;
 
-        $gananciaUnitaria = $precioUnitario - $costoUnitario;
-        $gananciaTotal = $gananciaUnitaria * $cantidadTomada;
+            $descuentoDetalle = $subtotal * ($descuentoPorcentaje / 100);
+            $gananciaTotal = (($precioUnitario - $costoUnitario) * $cantidadTomada) - $descuentoDetalle;
+            $gananciaUnitaria = $cantidadTomada > 0 ? $gananciaTotal / $cantidadTomada : 0;
 
-        $totalVenta += $subtotal;
+            $subtotalVenta += $subtotal;
 
-        $detallesFinales[] = [
-            'id_producto' => $idProducto,
-            'id_lote' => (int) $lote['id_lote'],
-            'cantidad' => $cantidadTomada,
-            'precio_unitario' => $precioUnitario,
-            'costo_unitario' => $costoUnitario,
-            'ganancia_unitaria' => $gananciaUnitaria,
-            'ganancia_total' => $gananciaTotal,
-            'subtotal' => $subtotal,
-        ];
+            $detallesFinales[] = [
+                'id_producto' => $idProducto,
+                'id_lote' => (int) $lote['id_lote'],
+                'cantidad' => $cantidadTomada,
+                'precio_unitario' => $precioUnitario,
+                'costo_unitario' => $costoUnitario,
+                'ganancia_unitaria' => $gananciaUnitaria,
+                'ganancia_total' => $gananciaTotal,
+                'subtotal' => $subtotal,
+            ];
 
             $cantidadPendiente -= $cantidadTomada;
         }
@@ -154,14 +194,45 @@ try {
         }
     }
 
+    $descuentoMonto = round($subtotalVenta * ($descuentoPorcentaje / 100), 2);
+    $totalVenta = round($subtotalVenta - $descuentoMonto, 2);
+
+    if ($totalVenta < 0) {
+        throw new Exception('El total de la venta no puede ser negativo.');
+    }
+
     $stmtVenta = $pdo->prepare("
-        INSERT INTO venta (fecha_venta, id_usuario, id_cliente, metodo_pago, total_venta)
-        VALUES (NOW(), :id_usuario, :id_cliente, :metodo_pago, :total_venta)
+        INSERT INTO venta (
+            fecha_venta,
+            id_usuario,
+            id_cliente,
+            metodo_pago,
+            subtotal_venta,
+            descuento_porcentaje,
+            descuento_monto,
+            motivo_descuento,
+            total_venta
+        ) VALUES (
+            NOW(),
+            :id_usuario,
+            :id_cliente,
+            :metodo_pago,
+            :subtotal_venta,
+            :descuento_porcentaje,
+            :descuento_monto,
+            :motivo_descuento,
+            :total_venta
+        )
     ");
+
     $stmtVenta->execute([
         'id_usuario' => (int) $_SESSION['usuario_id'],
         'id_cliente' => $idCliente,
         'metodo_pago' => $metodoPago,
+        'subtotal_venta' => $subtotalVenta,
+        'descuento_porcentaje' => $descuentoPorcentaje,
+        'descuento_monto' => $descuentoMonto,
+        'motivo_descuento' => $motivoDescuento,
         'total_venta' => $totalVenta,
     ]);
 
@@ -191,6 +262,7 @@ try {
                 :subtotal
             )
         ");
+
         $stmtDetalle->execute([
             'id_venta' => $idVenta,
             'id_producto' => $detalle['id_producto'],
@@ -208,6 +280,7 @@ try {
             SET cantidad_actual = cantidad_actual - :cantidad
             WHERE id_lote = :id_lote
         ");
+
         $stmtStockUpdate->execute([
             'cantidad' => $detalle['cantidad'],
             'id_lote' => $detalle['id_lote'],
