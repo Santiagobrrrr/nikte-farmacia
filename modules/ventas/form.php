@@ -162,7 +162,7 @@ try {
                         <div class="venta-section-title">Resumen de venta</div>
 
                         <div class="row g-3">
-                            <div class="col-12 col-lg-5">
+                            <div class="col-12 col-md-6 col-lg-4">
                                 <label class="form-label">Cliente</label>
                                 <input
                                     type="text"
@@ -170,12 +170,19 @@ try {
                                     class="form-control"
                                     placeholder="Consumidor final"
                                     value="<?= htmlspecialchars($old['nombre_cliente'] ?? '') ?>">
-                                <small class="text-muted">
-                                    Puede dejarse vacío para registrar como consumidor final.
-                                </small>
                             </div>
 
                             <div class="col-12 col-md-6 col-lg-3">
+                                <label class="form-label">NIT</label>
+                                <input
+                                    type="text"
+                                    name="nit_cliente"
+                                    class="form-control"
+                                    placeholder="CF o NIT del cliente"
+                                    value="<?= htmlspecialchars($old['nit_cliente'] ?? '') ?>">
+                            </div>
+
+                            <div class="col-12 col-md-6 col-lg-2">
                                 <label class="form-label">Método de pago</label>
                                 <select name="metodo_pago" class="form-select">
                                     <?php $metodoOld = $old['metodo_pago'] ?? 'efectivo'; ?>
@@ -185,7 +192,7 @@ try {
                                 </select>
                             </div>
 
-                            <div class="col-6 col-md-3 col-lg-2">
+                            <div class="col-6 col-md-3 col-lg-1">
                                 <label class="form-label">Productos</label>
                                 <input type="text" id="cantidad-items-view" class="form-control" value="0" readonly>
                             </div>

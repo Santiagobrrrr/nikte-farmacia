@@ -21,8 +21,13 @@ if ($idVenta > 0) {
                 v.id_venta,
                 v.fecha_venta,
                 v.metodo_pago,
+                v.subtotal_venta,
+                v.descuento_porcentaje,
+                v.descuento_monto,
+                v.motivo_descuento,
                 v.total_venta,
                 c.nombre AS nombre_cliente,
+                c.nit AS nit_cliente,
                 u.nombre AS nombre_usuario
             FROM venta v
             LEFT JOIN cliente c ON c.id_cliente = v.id_cliente
@@ -63,6 +68,14 @@ if (!$venta) {
 }
 
 $numeroComprobante = str_pad((string) $venta['id_venta'], 6, '0', STR_PAD_LEFT);
+$subtotalVenta = (float) ($venta['subtotal_venta'] ?? 0);
+$descuentoPorcentaje = (float) ($venta['descuento_porcentaje'] ?? 0);
+$descuentoMonto = (float) ($venta['descuento_monto'] ?? 0);
+$totalVenta = (float) ($venta['total_venta'] ?? 0);
+
+if ($subtotalVenta <= 0) {
+    $subtotalVenta = $totalVenta + $descuentoMonto;
+}
 ?>
 
 <style>
@@ -219,8 +232,13 @@ $numeroComprobante = str_pad((string) $venta['id_venta'], 6, '0', STR_PAD_LEFT);
 
                             <div class="col-6">
                                 <p class="receipt-label">Cliente:</p>
-                                <p class="receipt-value">
+                                <p class="receipt-value mb-2">
                                     <?= htmlspecialchars($venta['nombre_cliente'] ?? 'Consumidor final'); ?>
+                                </p>
+
+                                <p class="receipt-label">NIT:</p>
+                                <p class="receipt-value">
+                                    <?= htmlspecialchars($venta['nit_cliente'] ?? 'CF'); ?>
                                 </p>
                             </div>
 
@@ -280,14 +298,43 @@ $numeroComprobante = str_pad((string) $venta['id_venta'], 6, '0', STR_PAD_LEFT);
                                 </tbody>
 
                                 <tfoot>
-                                    <tr>
-                                        <td colspan="3" class="text-end receipt-total">
-                                            Total
-                                        </td>
-                                        <td class="text-end receipt-total">
-                                            Q<?= number_format((float) $venta['total_venta'], 2); ?>
-                                        </td>
-                                    </tr>
+                                    <?php if ($descuentoMonto > 0): ?>
+                                        <tr>
+                                            <td colspan="3" class="text-end">
+                                                Subtotal
+                                            </td>
+                                            <td class="text-end">
+                                                Q<?= number_format($subtotalVenta, 2); ?>
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <td colspan="3" class="text-end">
+                                                Descuento <?= number_format($descuentoPorcentaje, 2); ?>%
+                                            </td>
+                                            <td class="text-end">
+                                                - Q<?= number_format($descuentoMonto, 2); ?>
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <td colspan="3" class="text-end receipt-total">
+                                                Total
+                                            </td>
+                                            <td class="text-end receipt-total">
+                                                Q<?= number_format($totalVenta, 2); ?>
+                                            </td>
+                                        </tr>
+                                    <?php else: ?>
+                                        <tr>
+                                            <td colspan="3" class="text-end receipt-total">
+                                                Total
+                                            </td>
+                                            <td class="text-end receipt-total">
+                                                Q<?= number_format($totalVenta, 2); ?>
+                                            </td>
+                                        </tr>
+                                    <?php endif; ?>
                                 </tfoot>
                             </table>
                         </div>

@@ -10,6 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $nombreCliente = trim($_POST['nombre_cliente'] ?? '');
+$nitCliente = strtoupper(trim($_POST['nit_cliente'] ?? ''));
 $metodoPago = trim($_POST['metodo_pago'] ?? 'efectivo');
 $productosPost = $_POST['productos'] ?? [];
 
@@ -21,6 +22,10 @@ if ($nombreCliente === '') {
     $nombreCliente = 'Consumidor final';
 }
 
+if ($nitCliente === '' || $nitCliente === 'CF' || $nitCliente === 'C/F') {
+    $nitCliente = null;
+}
+
 $metodosPermitidos = ['efectivo', 'tarjeta', 'transferencia'];
 if (!in_array($metodoPago, $metodosPermitidos, true)) {
     $metodoPago = 'efectivo';
@@ -28,6 +33,7 @@ if (!in_array($metodoPago, $metodosPermitidos, true)) {
 
 $_SESSION['venta_old'] = [
     'nombre_cliente' => $nombreCliente === 'Consumidor final' ? '' : $nombreCliente,
+    'nit_cliente' => $nitCliente ?? '',
     'metodo_pago' => $metodoPago,
     'productos' => $productosPost,
     'descuento_porcentaje' => $descuentoPorcentaje,
@@ -96,17 +102,64 @@ try {
     $pdo = getPDO();
     $pdo->beginTransaction();
 
-    $stmtCliente = $pdo->prepare("SELECT id_cliente FROM cliente WHERE nombre = :nombre LIMIT 1");
-    $stmtCliente->execute(['nombre' => $nombreCliente]);
-    $clienteExistente = $stmtCliente->fetch();
+            if ($nitCliente !== null) {
+            $stmtCliente = $pdo->prepare("
+                SELECT id_cliente
+                FROM cliente
+                WHERE nit = :nit
+                LIMIT 1
+            ");
 
-    if ($clienteExistente) {
-        $idCliente = (int) $clienteExistente['id_cliente'];
-    } else {
-        $stmtNuevoCliente = $pdo->prepare("INSERT INTO cliente (nombre) VALUES (:nombre)");
-        $stmtNuevoCliente->execute(['nombre' => $nombreCliente]);
-        $idCliente = (int) $pdo->lastInsertId();
-    }
+            $stmtCliente->execute([
+                'nit' => $nitCliente,
+            ]);
+        } else {
+            $stmtCliente = $pdo->prepare("
+                SELECT id_cliente
+                FROM cliente
+                WHERE nombre = :nombre
+                LIMIT 1
+            ");
+
+            $stmtCliente->execute([
+                'nombre' => $nombreCliente,
+            ]);
+        }
+
+        $clienteExistente = $stmtCliente->fetch();
+
+        if ($clienteExistente) {
+            $idCliente = (int) $clienteExistente['id_cliente'];
+
+            $stmtActualizarCliente = $pdo->prepare("
+                UPDATE cliente
+                SET
+                    nombre = :nombre,
+                    nit = CASE
+                        WHEN :nit IS NOT NULL THEN :nit
+                        ELSE nit
+                    END
+                WHERE id_cliente = :id_cliente
+            ");
+
+            $stmtActualizarCliente->execute([
+                'nombre' => $nombreCliente,
+                'nit' => $nitCliente,
+                'id_cliente' => $idCliente,
+            ]);
+        } else {
+            $stmtNuevoCliente = $pdo->prepare("
+                INSERT INTO cliente (nombre, nit)
+                VALUES (:nombre, :nit)
+            ");
+
+            $stmtNuevoCliente->execute([
+                'nombre' => $nombreCliente,
+                'nit' => $nitCliente,
+            ]);
+
+            $idCliente = (int) $pdo->lastInsertId();
+        }
 
     $detallesFinales = [];
     $subtotalVenta = 0;
