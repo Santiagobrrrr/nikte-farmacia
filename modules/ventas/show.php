@@ -35,6 +35,7 @@ if ($idVenta > 0) {
             WHERE v.id_venta = :id
             LIMIT 1
         ");
+
         $stmt->execute(['id' => $idVenta]);
         $venta = $stmt->fetch();
 
@@ -53,6 +54,7 @@ if ($idVenta > 0) {
                 WHERE dv.id_venta = :id
                 ORDER BY dv.id_detalle_venta ASC
             ");
+
             $stmtDet->execute(['id' => $idVenta]);
             $detalles = $stmtDet->fetchAll();
         }
@@ -68,6 +70,7 @@ if (!$venta) {
 }
 
 $numeroComprobante = str_pad((string) $venta['id_venta'], 6, '0', STR_PAD_LEFT);
+
 $subtotalVenta = (float) ($venta['subtotal_venta'] ?? 0);
 $descuentoPorcentaje = (float) ($venta['descuento_porcentaje'] ?? 0);
 $descuentoMonto = (float) ($venta['descuento_monto'] ?? 0);
@@ -76,51 +79,115 @@ $totalVenta = (float) ($venta['total_venta'] ?? 0);
 if ($subtotalVenta <= 0) {
     $subtotalVenta = $totalVenta + $descuentoMonto;
 }
+
+$nitCliente = trim((string) ($venta['nit_cliente'] ?? ''));
+if ($nitCliente === '') {
+    $nitCliente = 'CF';
+}
 ?>
 
 <style>
-    .receipt-wrapper {
-        max-width: 780px;
+    .invoice-wrapper {
+        max-width: 900px;
         margin: 0 auto;
     }
 
-    .receipt-card {
+    .invoice-card {
         background: #fff;
         border-radius: 10px;
+        border: 1px solid #dee2e6;
     }
 
-    .receipt-title {
+    .invoice-title {
+        text-align: center;
         font-size: 1.8rem;
         font-weight: 700;
-        margin-bottom: 0.25rem;
+        margin-bottom: 1.1rem;
+        color: #0f5f78;
     }
 
-    .receipt-subtitle {
-        color: #6c757d;
-        margin-bottom: 0.25rem;
-    }
-
-    .receipt-number {
-        font-weight: 700;
-        font-size: 1rem;
-    }
-
-    .receipt-label {
-        font-weight: 700;
-        margin-bottom: 0.25rem;
-    }
-
-    .receipt-value {
+    .invoice-separator {
+        border-top: 2px solid #212529;
         margin-bottom: 1rem;
     }
 
-    .receipt-total {
-        font-size: 1.1rem;
+    .invoice-info {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.25rem;
+        margin-bottom: 1rem;
+        font-size: .92rem;
+    }
+
+    .invoice-box {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: .8rem .9rem;
+        background: #fdfdfd;
+    }
+
+    .invoice-box-title {
         font-weight: 700;
+        color: #0f5f78;
+        letter-spacing: .5px;
+        text-transform: uppercase;
+        margin-bottom: .55rem;
+    }
+
+    .invoice-line {
+        margin-bottom: .35rem;
+    }
+
+    .invoice-line:last-child {
+        margin-bottom: 0;
+    }
+
+    .invoice-label {
+        font-weight: 700;
+        color: #212529;
+    }
+
+    .invoice-value {
+        color: #212529;
+    }
+
+    .invoice-table {
+        font-size: .9rem;
+        margin-bottom: 0;
+    }
+
+    .invoice-table th {
+        background: #f1f4f6;
+        color: #212529;
+        font-weight: 700;
+        text-align: center;
+    }
+
+    .invoice-table td,
+    .invoice-table th {
+        vertical-align: middle;
+        padding: .55rem .6rem;
+    }
+
+    .invoice-total-label {
+        font-weight: 700;
+        text-align: right;
+    }
+
+    .invoice-total-value {
+        font-weight: 700;
+        text-align: right;
+    }
+
+    .invoice-footer {
+        text-align: center;
+        margin-top: 1.4rem;
+        color: #6c757d;
+        font-size: .85rem;
     }
 
     .internal-note {
-        font-size: 0.85rem;
+        font-size: .78rem;
     }
 
     @page {
@@ -153,12 +220,12 @@ if ($subtotalVenta <= 0) {
             display: none !important;
         }
 
-        .receipt-wrapper {
+        .invoice-wrapper {
             max-width: 100%;
             margin: 0;
         }
 
-        .receipt-card {
+        .invoice-card {
             border: none !important;
             box-shadow: none !important;
         }
@@ -167,7 +234,8 @@ if ($subtotalVenta <= 0) {
             padding: 0 !important;
         }
 
-        .table {
+        .invoice-table,
+        .invoice-info {
             font-size: 12px;
         }
     }
@@ -203,69 +271,95 @@ if ($subtotalVenta <= 0) {
                 </div>
             <?php endif; ?>
 
-            <div id="print-area" class="receipt-wrapper">
-                <div class="card shadow-sm border-0 receipt-card">
+            <div id="print-area" class="invoice-wrapper">
+                <div class="card shadow-sm invoice-card">
                     <div class="card-body p-4">
 
-                        <div class="text-center mb-4">
-                            <div class="receipt-title"><?= htmlspecialchars(APP_NAME); ?></div>
-                            <div class="receipt-subtitle">Comprobante interno de venta</div>
-                            <div class="receipt-number">
-                                Comprobante No. <?= htmlspecialchars($numeroComprobante); ?>
-                            </div>
+                        <div class="invoice-title">
+                            Factura
                         </div>
 
-                        <div class="row mb-3">
-                            <div class="col-6">
-                                <p class="receipt-label">Fecha:</p>
-                                <p class="receipt-value">
-                                    <?= date('d/m/Y H:i', strtotime($venta['fecha_venta'])); ?>
-                                </p>
+                        <div class="invoice-separator"></div>
+
+                        <div class="invoice-info">
+                            <div class="invoice-box">
+                                <div class="invoice-box-title">
+                                    <?= strtoupper(htmlspecialchars(APP_NAME)); ?>
+                                </div>
+
+                                <div class="invoice-line">
+                                    <span class="invoice-label">Tipo:</span>
+                                    <span class="invoice-value">Comprobante interno de venta</span>
+                                </div>
+
+                                <div class="invoice-line">
+                                    <span class="invoice-label">Nombre receptor:</span>
+                                    <span class="invoice-value">
+                                        <?= htmlspecialchars($venta['nombre_cliente'] ?? 'Consumidor final'); ?>
+                                    </span>
+                                </div>
+
+                                <div class="invoice-line">
+                                    <span class="invoice-label">NIT receptor:</span>
+                                    <span class="invoice-value">
+                                        <?= htmlspecialchars($nitCliente); ?>
+                                    </span>
+                                </div>
                             </div>
 
-                            <div class="col-6 text-end">
-                                <p class="receipt-label">Método de pago:</p>
-                                <p class="receipt-value">
-                                    <?= ucfirst(htmlspecialchars($venta['metodo_pago'])); ?>
-                                </p>
-                            </div>
+                            <div class="invoice-box">
+                                <div class="invoice-line">
+                                    <span class="invoice-label">Número de comprobante:</span>
+                                    <span class="invoice-value">
+                                        <?= htmlspecialchars($numeroComprobante); ?>
+                                    </span>
+                                </div>
 
-                            <div class="col-6">
-                                <p class="receipt-label">Cliente:</p>
-                                <p class="receipt-value mb-2">
-                                    <?= htmlspecialchars($venta['nombre_cliente'] ?? 'Consumidor final'); ?>
-                                </p>
+                                <div class="invoice-line">
+                                    <span class="invoice-label">Fecha y hora de emisión:</span>
+                                    <span class="invoice-value">
+                                        <?= date('d/m/Y H:i', strtotime($venta['fecha_venta'])); ?>
+                                    </span>
+                                </div>
 
-                                <p class="receipt-label">NIT:</p>
-                                <p class="receipt-value">
-                                    <?= htmlspecialchars($venta['nit_cliente'] ?? 'CF'); ?>
-                                </p>
-                            </div>
+                                <div class="invoice-line">
+                                    <span class="invoice-label">Vendedor:</span>
+                                    <span class="invoice-value">
+                                        <?= htmlspecialchars($venta['nombre_usuario'] ?? ''); ?>
+                                    </span>
+                                </div>
 
-                            <div class="col-6 text-end">
-                                <p class="receipt-label">Vendedor:</p>
-                                <p class="receipt-value">
-                                    <?= htmlspecialchars($venta['nombre_usuario'] ?? ''); ?>
-                                </p>
+                                <div class="invoice-line">
+                                    <span class="invoice-label">Método de pago:</span>
+                                    <span class="invoice-value">
+                                        <?= ucfirst(htmlspecialchars($venta['metodo_pago'])); ?>
+                                    </span>
+                                </div>
                             </div>
                         </div>
 
                         <div class="table-responsive">
-                            <table class="table table-bordered align-middle">
-                                <thead class="table-light">
+                            <table class="table table-bordered align-middle invoice-table">
+                                <thead>
                                     <tr>
-                                        <th>Producto</th>
-                                        <th class="text-end">Cant.</th>
-                                        <th class="text-end">Precio</th>
-                                        <th class="text-end">Subtotal</th>
+                                        <th width="60">#</th>
+                                        <th>Descripción</th>
+                                        <th width="110">Cantidad</th>
+                                        <th width="140">P. Unitario</th>
+                                        <th width="130">Descuento</th>
+                                        <th width="140">Total</th>
                                     </tr>
                                 </thead>
 
                                 <tbody>
-                                    <?php foreach ($detalles as $d): ?>
+                                    <?php foreach ($detalles as $index => $d): ?>
                                         <tr>
+                                            <td class="text-center">
+                                                <?= $index + 1; ?>
+                                            </td>
+
                                             <td>
-                                                <?= htmlspecialchars($d['nombre_producto']); ?>
+                                                <strong><?= htmlspecialchars($d['nombre_producto']); ?></strong>
 
                                                 <?php if (!empty($d['presentacion'])): ?>
                                                     <br>
@@ -282,12 +376,16 @@ if ($subtotalVenta <= 0) {
                                                 <?php endif; ?>
                                             </td>
 
-                                            <td class="text-end">
+                                            <td class="text-center">
                                                 <?= (int) $d['cantidad']; ?>
                                             </td>
 
                                             <td class="text-end">
                                                 Q<?= number_format((float) $d['precio_unitario'], 2); ?>
+                                            </td>
+
+                                            <td class="text-end">
+                                                Q0.00
                                             </td>
 
                                             <td class="text-end">
@@ -298,63 +396,57 @@ if ($subtotalVenta <= 0) {
                                 </tbody>
 
                                 <tfoot>
+                                    <tr>
+                                        <td colspan="4" class="invoice-total-label">
+                                            TOTALES:
+                                        </td>
+                                        <td class="text-end">
+                                            Q<?= number_format($descuentoMonto, 2); ?>
+                                        </td>
+                                        <td class="text-end">
+                                            Q<?= number_format($subtotalVenta, 2); ?>
+                                        </td>
+                                    </tr>
+
                                     <?php if ($descuentoMonto > 0): ?>
                                         <tr>
-                                            <td colspan="3" class="text-end">
-                                                Subtotal
-                                            </td>
-                                            <td class="text-end">
-                                                Q<?= number_format($subtotalVenta, 2); ?>
-                                            </td>
-                                        </tr>
-
-                                        <tr>
-                                            <td colspan="3" class="text-end">
-                                                Descuento <?= number_format($descuentoPorcentaje, 2); ?>%
+                                            <td colspan="5" class="invoice-total-label">
+                                                Descuento general <?= number_format($descuentoPorcentaje, 2); ?>%
                                             </td>
                                             <td class="text-end">
                                                 - Q<?= number_format($descuentoMonto, 2); ?>
                                             </td>
                                         </tr>
-
-                                        <tr>
-                                            <td colspan="3" class="text-end receipt-total">
-                                                Total
-                                            </td>
-                                            <td class="text-end receipt-total">
-                                                Q<?= number_format($totalVenta, 2); ?>
-                                            </td>
-                                        </tr>
-                                    <?php else: ?>
-                                        <tr>
-                                            <td colspan="3" class="text-end receipt-total">
-                                                Total
-                                            </td>
-                                            <td class="text-end receipt-total">
-                                                Q<?= number_format($totalVenta, 2); ?>
-                                            </td>
-                                        </tr>
                                     <?php endif; ?>
+
+                                    <tr>
+                                        <td colspan="5" class="invoice-total-label">
+                                            Total final
+                                        </td>
+                                        <td class="invoice-total-value">
+                                            Q<?= number_format($totalVenta, 2); ?>
+                                        </td>
+                                    </tr>
                                 </tfoot>
                             </table>
                         </div>
 
-                        <div class="text-center mt-4">
-                            <small class="text-muted">
-                                Gracias por su compra.
-                            </small>
-                        </div>
+                        <?php if ($descuentoMonto > 0 && !empty($venta['motivo_descuento'])): ?>
+                            <div class="alert alert-light border internal-only mt-3 mb-0">
+                                <strong>Motivo del descuento:</strong>
+                                <?= htmlspecialchars($venta['motivo_descuento']); ?>
+                            </div>
+                        <?php endif; ?>
 
-                        <div class="text-center mt-2">
-                            <small class="text-muted">
-                                Comprobante interno sin validez fiscal.
-                            </small>
-                        </div>
+                        <div class="invoice-footer">
+                            <div>Gracias por su compra.</div>
+                            <div class="mt-1">Comprobante interno sin validez fiscal.</div>
 
-                        <div class="text-center mt-2 internal-only">
-                            <small class="text-muted internal-note">
-                                Información interna: los lotes se muestran únicamente para control de inventario.
-                            </small>
+                            <div class="mt-2 internal-only">
+                                <span class="internal-note">
+                                    Información interna: los lotes se muestran únicamente para control de inventario.
+                                </span>
+                            </div>
                         </div>
 
                     </div>
