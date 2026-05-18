@@ -1,367 +1,218 @@
 <?php
-require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../includes/auth_check.php';
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../includes/header.php';
 
-$idVenta = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+$idCompra = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 
-$success = $_SESSION['venta_success'] ?? '';
-unset($_SESSION['venta_success']);
-
-$venta = null;
+$compra = null;
 $detalles = [];
+$error = '';
 
-if ($idVenta > 0) {
+if ($idCompra > 0) {
     try {
         $pdo = getPDO();
 
         $stmt = $pdo->prepare("
             SELECT
-                v.id_venta,
-                v.fecha_venta,
-                v.metodo_pago,
-                v.subtotal_venta,
-                v.descuento_porcentaje,
-                v.descuento_monto,
-                v.motivo_descuento,
-                v.total_venta,
-                c.nombre AS nombre_cliente,
-                u.nombre AS nombre_usuario
-            FROM venta v
-            LEFT JOIN cliente c ON c.id_cliente = v.id_cliente
-            LEFT JOIN usuario u ON u.id_usuario = v.id_usuario
-            WHERE v.id_venta = :id
+                c.id_compra,
+                c.fecha_compra,
+                c.total_compra,
+                p.nombre AS proveedor,
+                u.nombre AS usuario
+            FROM compra c
+            INNER JOIN proveedor p ON p.id_proveedor = c.id_proveedor
+            INNER JOIN usuario u ON u.id_usuario = c.id_usuario
+            WHERE c.id_compra = :id_compra
             LIMIT 1
         ");
 
-        $stmt->execute(['id' => $idVenta]);
-        $venta = $stmt->fetch();
+        $stmt->execute([
+            'id_compra' => $idCompra
+        ]);
 
-        if ($venta) {
-            $stmtDet = $pdo->prepare("
+        $compra = $stmt->fetch();
+
+        if ($compra) {
+            $stmtDetalles = $pdo->prepare("
                 SELECT
-                    dv.cantidad,
-                    dv.precio_unitario,
-                    dv.subtotal,
-                    p.nombre AS nombre_producto,
-                    p.presentacion,
-                    l.codigo_lote
-                FROM detalleventa dv
-                INNER JOIN producto p ON p.id_producto = dv.id_producto
-                LEFT JOIN lote l ON l.id_lote = dv.id_lote
-                WHERE dv.id_venta = :id
-                ORDER BY dv.id_detalle_venta ASC
+                    dc.cantidad,
+                    dc.costo_unitario,
+                    dc.subtotal,
+                    pr.nombre AS producto,
+                    pr.presentacion,
+                    l.codigo_lote,
+                    l.fecha_vencimiento,
+                    l.cantidad_actual
+                FROM detallecompra dc
+                INNER JOIN producto pr ON pr.id_producto = dc.id_producto
+                INNER JOIN lote l ON l.id_lote = dc.id_lote
+                WHERE dc.id_compra = :id_compra
+                ORDER BY dc.id_detalle_compra ASC
             ");
 
-            $stmtDet->execute(['id' => $idVenta]);
-            $detalles = $stmtDet->fetchAll();
+            $stmtDetalles->execute([
+                'id_compra' => $idCompra
+            ]);
+
+            $detalles = $stmtDetalles->fetchAll();
         }
 
     } catch (Throwable $e) {
-        $venta = null;
+        $error = 'No se pudo cargar el detalle de la compra.';
     }
 }
 
-if (!$venta) {
-    header('Location: ' . BASE_URL . '/modules/ventas/index.php');
-    exit;
-}
-
-$numeroComprobante = str_pad((string) $venta['id_venta'], 6, '0', STR_PAD_LEFT);
-
-$subtotalVenta = (float) ($venta['subtotal_venta'] ?? 0);
-$descuentoPorcentaje = (float) ($venta['descuento_porcentaje'] ?? 0);
-$descuentoMonto = (float) ($venta['descuento_monto'] ?? 0);
-$totalVenta = (float) ($venta['total_venta'] ?? 0);
-
-if ($subtotalVenta <= 0) {
-    $subtotalVenta = $totalVenta + $descuentoMonto;
+if (!$compra && empty($error)) {
+    $error = 'La compra seleccionada no existe.';
 }
 ?>
-
-<style>
-    .receipt-wrapper {
-        max-width: 780px;
-        margin: 0 auto;
-    }
-
-    .receipt-card {
-        background: #fff;
-        border-radius: 10px;
-    }
-
-    .receipt-title {
-        font-size: 1.8rem;
-        font-weight: 700;
-        margin-bottom: 0.25rem;
-    }
-
-    .receipt-subtitle {
-        color: #6c757d;
-        margin-bottom: 0.25rem;
-    }
-
-    .receipt-number {
-        font-weight: 700;
-        font-size: 1rem;
-    }
-
-    .receipt-label {
-        font-weight: 700;
-        margin-bottom: 0.25rem;
-    }
-
-    .receipt-value {
-        margin-bottom: 1rem;
-    }
-
-    .receipt-total {
-        font-size: 1.1rem;
-        font-weight: 700;
-    }
-
-    .internal-note {
-        font-size: 0.85rem;
-    }
-
-    @page {
-        margin: 12mm;
-    }
-
-    @media print {
-        body * {
-            visibility: hidden;
-        }
-
-        #print-area,
-        #print-area * {
-            visibility: visible;
-        }
-
-        #print-area {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-        }
-
-        .no-print,
-        .no-print * {
-            display: none !important;
-        }
-
-        .internal-only {
-            display: none !important;
-        }
-
-        .receipt-wrapper {
-            max-width: 100%;
-            margin: 0;
-        }
-
-        .receipt-card {
-            border: none !important;
-            box-shadow: none !important;
-        }
-
-        .card-body {
-            padding: 0 !important;
-        }
-
-        .table {
-            font-size: 12px;
-        }
-    }
-</style>
 
 <div class="container-fluid py-4">
     <div class="row">
         <?php require_once __DIR__ . '/../../includes/sidebar.php'; ?>
 
         <div class="col-12 col-md-9 col-lg-10">
-            <div class="no-print d-flex justify-content-between align-items-center mb-3">
-                <div>
-                    <h1 class="mb-1">Detalle de venta #<?= (int) $venta['id_venta']; ?></h1>
-                    <p class="text-muted mb-0">
-                        Comprobante de la transacción registrada.
-                    </p>
-                </div>
+            <div class="card shadow-sm">
+                <div class="card-body">
 
-                <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-primary" onclick="window.print()">
-                        Imprimir comprobante
-                    </button>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h1 class="mb-1">
+                                Detalle de compra #<?= (int) $idCompra; ?>
+                            </h1>
+                            <p class="text-muted mb-0">
+                                Información de la compra registrada.
+                            </p>
+                        </div>
 
-                    <a href="<?= BASE_URL; ?>/modules/ventas/index.php" class="btn btn-secondary">
-                        Volver
-                    </a>
-                </div>
-            </div>
+                        <a href="<?= BASE_URL; ?>/modules/compras/index.php" class="btn btn-secondary">
+                            Volver
+                        </a>
+                    </div>
 
-            <?php if (!empty($success)): ?>
-                <div class="no-print alert alert-success">
-                    <?= htmlspecialchars($success); ?>
-                </div>
-            <?php endif; ?>
+                    <?php if (!empty($error)): ?>
+                        <div class="alert alert-danger">
+                            <?= htmlspecialchars($error); ?>
+                        </div>
+                    <?php else: ?>
 
-            <div id="print-area" class="receipt-wrapper">
-                <div class="card shadow-sm border-0 receipt-card">
-                    <div class="card-body p-4">
+                        <div class="row g-3 mb-4">
+                            <div class="col-12 col-md-3">
+                                <div class="border rounded p-3 h-100">
+                                    <small class="text-muted">Fecha</small>
+                                    <div class="fw-bold">
+                                        <?= htmlspecialchars($compra['fecha_compra']); ?>
+                                    </div>
+                                </div>
+                            </div>
 
-                        <div class="text-center mb-4">
-                            <div class="receipt-title"><?= htmlspecialchars(APP_NAME); ?></div>
-                            <div class="receipt-subtitle">Comprobante interno de venta</div>
-                            <div class="receipt-number">
-                                Comprobante No. <?= htmlspecialchars($numeroComprobante); ?>
+                            <div class="col-12 col-md-3">
+                                <div class="border rounded p-3 h-100">
+                                    <small class="text-muted">Proveedor</small>
+                                    <div class="fw-bold">
+                                        <?= htmlspecialchars($compra['proveedor']); ?>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12 col-md-3">
+                                <div class="border rounded p-3 h-100">
+                                    <small class="text-muted">Usuario</small>
+                                    <div class="fw-bold">
+                                        <?= htmlspecialchars($compra['usuario']); ?>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12 col-md-3">
+                                <div class="border rounded p-3 h-100">
+                                    <small class="text-muted">Total compra</small>
+                                    <div class="fw-bold text-success">
+                                        Q<?= number_format((float) $compra['total_compra'], 2); ?>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="row mb-3">
-                            <div class="col-6">
-                                <p class="receipt-label">Fecha:</p>
-                                <p class="receipt-value">
-                                    <?= date('d/m/Y H:i', strtotime($venta['fecha_venta'])); ?>
-                                </p>
+                        <h4 class="mb-3">Productos comprados</h4>
+
+                        <?php if (empty($detalles)): ?>
+                            <div class="alert alert-warning">
+                                Esta compra no tiene productos registrados.
                             </div>
-
-                            <div class="col-6 text-end">
-                                <p class="receipt-label">Método de pago:</p>
-                                <p class="receipt-value">
-                                    <?= ucfirst(htmlspecialchars($venta['metodo_pago'])); ?>
-                                </p>
-                            </div>
-
-                            <div class="col-6">
-                                <p class="receipt-label">Cliente:</p>
-                                <p class="receipt-value">
-                                    <?= htmlspecialchars($venta['nombre_cliente'] ?? 'Consumidor final'); ?>
-                                </p>
-                            </div>
-
-                            <div class="col-6 text-end">
-                                <p class="receipt-label">Vendedor:</p>
-                                <p class="receipt-value">
-                                    <?= htmlspecialchars($venta['nombre_usuario'] ?? ''); ?>
-                                </p>
-                            </div>
-                        </div>
-
-                        <div class="table-responsive">
-                            <table class="table table-bordered align-middle">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Producto</th>
-                                        <th class="text-end">Cant.</th>
-                                        <th class="text-end">Precio</th>
-                                        <th class="text-end">Subtotal</th>
-                                    </tr>
-                                </thead>
-
-                                <tbody>
-                                    <?php foreach ($detalles as $d): ?>
+                        <?php else: ?>
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-hover align-middle">
+                                    <thead class="table-light">
                                         <tr>
-                                            <td>
-                                                <?= htmlspecialchars($d['nombre_producto']); ?>
-
-                                                <?php if (!empty($d['presentacion'])): ?>
-                                                    <br>
-                                                    <small class="text-muted">
-                                                        <?= htmlspecialchars($d['presentacion']); ?>
-                                                    </small>
-                                                <?php endif; ?>
-
-                                                <?php if (!empty($d['codigo_lote'])): ?>
-                                                    <br>
-                                                    <small class="text-muted internal-only">
-                                                        Lote: <?= htmlspecialchars($d['codigo_lote']); ?>
-                                                    </small>
-                                                <?php endif; ?>
-                                            </td>
-
-                                            <td class="text-end">
-                                                <?= (int) $d['cantidad']; ?>
-                                            </td>
-
-                                            <td class="text-end">
-                                                Q<?= number_format((float) $d['precio_unitario'], 2); ?>
-                                            </td>
-
-                                            <td class="text-end">
-                                                Q<?= number_format((float) $d['subtotal'], 2); ?>
-                                            </td>
+                                            <th>Producto</th>
+                                            <th>Lote</th>
+                                            <th>Vencimiento</th>
+                                            <th class="text-end">Cantidad comprada</th>
+                                            <th class="text-end">Existencia actual</th>
+                                            <th class="text-end">Costo unitario</th>
+                                            <th class="text-end">Subtotal</th>
                                         </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
+                                    </thead>
 
-                                <tfoot>
-                                    <?php if ($descuentoMonto > 0): ?>
-                                        <tr>
-                                            <td colspan="3" class="text-end">
-                                                Subtotal
-                                            </td>
-                                            <td class="text-end">
-                                                Q<?= number_format($subtotalVenta, 2); ?>
-                                            </td>
-                                        </tr>
+                                    <tbody>
+                                        <?php foreach ($detalles as $detalle): ?>
+                                            <tr>
+                                                <td>
+                                                    <strong><?= htmlspecialchars($detalle['producto']); ?></strong>
 
-                                        <tr>
-                                            <td colspan="3" class="text-end">
-                                                Descuento <?= number_format($descuentoPorcentaje, 2); ?>%
-                                            </td>
-                                            <td class="text-end">
-                                                - Q<?= number_format($descuentoMonto, 2); ?>
-                                            </td>
-                                        </tr>
+                                                    <?php if (!empty($detalle['presentacion'])): ?>
+                                                        <br>
+                                                        <small class="text-muted">
+                                                            <?= htmlspecialchars($detalle['presentacion']); ?>
+                                                        </small>
+                                                    <?php endif; ?>
+                                                </td>
 
+                                                <td>
+                                                    <?= htmlspecialchars($detalle['codigo_lote']); ?>
+                                                </td>
+
+                                                <td>
+                                                    <?= htmlspecialchars($detalle['fecha_vencimiento']); ?>
+                                                </td>
+
+                                                <td class="text-end">
+                                                    <?= (int) $detalle['cantidad']; ?>
+                                                </td>
+
+                                                <td class="text-end">
+                                                    <?= (int) $detalle['cantidad_actual']; ?>
+                                                </td>
+
+                                                <td class="text-end">
+                                                    Q<?= number_format((float) $detalle['costo_unitario'], 2); ?>
+                                                </td>
+
+                                                <td class="text-end">
+                                                    Q<?= number_format((float) $detalle['subtotal'], 2); ?>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+
+                                    <tfoot>
                                         <tr>
-                                            <td colspan="3" class="text-end receipt-total">
+                                            <td colspan="6" class="text-end fw-bold">
                                                 Total
                                             </td>
-                                            <td class="text-end receipt-total">
-                                                Q<?= number_format($totalVenta, 2); ?>
+                                            <td class="text-end fw-bold">
+                                                Q<?= number_format((float) $compra['total_compra'], 2); ?>
                                             </td>
                                         </tr>
-                                    <?php else: ?>
-                                        <tr>
-                                            <td colspan="3" class="text-end receipt-total">
-                                                Total
-                                            </td>
-                                            <td class="text-end receipt-total">
-                                                Q<?= number_format($totalVenta, 2); ?>
-                                            </td>
-                                        </tr>
-                                    <?php endif; ?>
-                                </tfoot>
-                            </table>
-                        </div>
-
-                        <?php if ($descuentoMonto > 0 && !empty($venta['motivo_descuento'])): ?>
-                            <div class="alert alert-light border internal-only mt-3">
-                                <strong>Motivo del descuento:</strong>
-                                <?= htmlspecialchars($venta['motivo_descuento']); ?>
+                                    </tfoot>
+                                </table>
                             </div>
                         <?php endif; ?>
 
-                        <div class="text-center mt-4">
-                            <small class="text-muted">
-                                Gracias por su compra.
-                            </small>
-                        </div>
+                    <?php endif; ?>
 
-                        <div class="text-center mt-2">
-                            <small class="text-muted">
-                                Comprobante interno sin validez fiscal.
-                            </small>
-                        </div>
-
-                        <div class="text-center mt-2 internal-only">
-                            <small class="text-muted internal-note">
-                                Información interna: los lotes se muestran únicamente para control de inventario.
-                            </small>
-                        </div>
-
-                    </div>
                 </div>
             </div>
         </div>
